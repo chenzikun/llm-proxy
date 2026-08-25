@@ -1,4 +1,4 @@
-module github.com/songquanpeng/one-api
+module github.com/zicorn/llm-proxy
 
 // +heroku goVersion go1.18
 go 1.21
