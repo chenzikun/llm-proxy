@@ -1,0 +1,51 @@
+.. llm-proxy documentation master file, created by
+   sphinx-quickstart on Mon Dec  9 11:19:54 2024.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
+
+llm-proxy
+=======================
+
+大模型接口代理服务
+
+.. toctree::
+   :maxdepth: 2
+   :caption: 开始
+
+   start
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API
+
+   api/chat
+   api/rerank
+   api/embedding
+   api/text2img
+   api/text2speech
+   api/speech2text
+
+   api/finetune/index
+
+
+.. toctree::
+   :maxdepth: 2
+   :caption: 模型列表
+
+   models
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: 最佳实践
+
+   best_practices/cache_openai
+   best_practices/cache_bedrock
+   best_practices/prompt_engineering
+
+
+.. .. toctree::
+..    :maxdepth: 1
+..    :caption: 道通学院
+
+..    

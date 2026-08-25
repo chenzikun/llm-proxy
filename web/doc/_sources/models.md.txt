@@ -1,0 +1,65 @@
+# 模型列表
+
+| 模型ID                          | 输入费用(一千token) | 输出费用(一千token) |    平台   | 类型      |
+| ----------------------------- | --------------- | ---------------- | -------- | --------- |
+| gpt-4                         | 0.03            | 0.06             | OpenAI       | Chat      |
+| gpt-4-0314                    | 0.03            | 0.06             | OpenAI       | Chat      |
+| gpt-4-0613                    | 0.03            | 0.06             | OpenAI       | Chat      |
+| gpt-4-32k-0314                | 0.06            | 0.12             | OpenAI       | Chat      |
+| gpt-4-1106-preview            | 0.01            | 0.03             | OpenAI       | Chat      |
+| gpt-4-0125-preview            | 0.01            | 0.03             | OpenAI       | Chat      |
+| gpt-4-turbo-preview           | 0.01            | 0.03             | OpenAI       | Chat      |
+| gpt-4-turbo                   | 0.01            | 0.03             | OpenAI       | Chat      |
+| gpt-4-turbo-2024-04-09        | 0.01            | 0.03             | OpenAI       | Chat      |
+| gpt-4-vision-preview          | 0.01            | 0.03             | OpenAI       | Chat      |
+| gpt-4o                        | 0.0025          | 0.010            | OpenAI       | Chat      |
+| gpt-4o-2024-05-13             | 0.0025          | 0.010            | OpenAI       | Chat      |
+| gpt-4o-mini                   | 0.00015         | 0.0006           | OpenAI       | Chat      |
+| gpt-4o-mini-2024-07-18        | 0.00015         | 0.0006           | OpenAI       | Chat      |
+| gpt-4.5-preview               | 0.075           | 0.15             | OpenAI       | Chat      |
+| gpt-4.5-preview-2025-02-27    | 0.075           | 0.15             | OpenAI       | Chat      |
+| o1                            | 0.015           | 0.06             | OpenAI       | Chat      |
+| o1-2024-12-17                 | 0.015           | 0.06             | OpenAI       | Chat      |
+| o1-mini                       | 0.003           | 0.012            | OpenAI       | Chat      |
+| o1-preview                    | 0.015           | 0.06             | OpenAI       | Chat      |
+| o1-preview-2024-09-12         | 0.015           | 0.06             | OpenAI       | Chat      |
+| o3-mini                       | 0.0011          | 0.0044           | OpenAI       | Chat      |
+| o3-mini-2025-01-31            | 0.0011          | 0.0044           | OpenAI       | Chat      |
+| gpt-3.5-turbo                 | 0.0005          | 0.0015           | OpenAI       | Chat      |
+| gpt-3.5-turbo-16k             | 0.003           | 0.004            | OpenAI       | Chat      |
+| tts-1                         | 0.015           |                  | OpenAI       | TTS       |
+| tts-1-1106                    | 0.015           |                  | OpenAI       | TTS       |
+| tts-1-hd                      | 0.03            |                  | OpenAI       | TTS       |
+| tts-1-hd-1106                 | 0.03            |                  | OpenAI       | TTS       |
+| whisper-1                     | 0.03            |                  | OpenAI       | STT       |
+| text-embedding-ada-002        | 0.0001          |                  | OpenAI       | Embedding |
+| text-embedding-3-small        | 0.00002         |                  | OpenAI       | Embedding |
+| text-embedding-3-large        | 0.00013         |                  | OpenAI       | Embedding |
+| dall-e-2                      | 0.02            |                  | OpenAI       | Image     |
+| dall-e-3                      | 0.04            |                  | OpenAI       | Image     |
+| aws-claude3:haiku-20240307    | 0.00025         | 0.00125          | AWS      | Chat      |
+| aws-claude3:sonnet-20240229   | 0.003           | 0.015            | AWS      | Chat      |
+| aws-claude3:opus-20240229     | 0.015           | 0.075            | AWS      | Chat      |
+| aws-claude3.5:sonnet-20240620 | 0.003           | 0.015            | AWS      | Chat      |
+| aws-claude3.5:sonnet-20241022 | 0.003           | 0.015            | AWS      | Chat      |
+| aws-claude3.7:sonnet-20250219 | 0.003           | 0.015            | AWS      | Chat      |
+| aws-llama3:8b                 | 0.0003          | 0.0006           | AWS      | Chat      |
+| aws-llama3:70b                | 0.00265         | 0.0035           | AWS      | Chat      |
+| aws-llama3.1:8b               | 0.00022         | 0.00022          | AWS      | Chat      |
+| aws-llama3.1:70b              | 0.00099         | 0.00099          | AWS      | Chat      |
+| aws-llama3.1:405b             | 0.00532         | 0.016            | AWS      | Chat      |
+| aws-llama3.2:1b               | 0.0001          | 0.0001           | AWS      | Chat      |
+| aws-llama3.2:3b               | 0.00015         | 0.00015          | AWS      | Chat      |
+| aws-llama3.2:11b              | 0.00035         | 0.00035          | AWS      | Chat      |
+| aws-llama3.2:90b              | 0.002           | 0.002            | AWS      | Chat      |
+| deepseek.r1-v1:0              | 0.00135         | 0.0054           | AWS      | Chat      |
+| cohere.embed-english-v3       | 0.002           | 0.002            | AWS      | Embedding |
+| cohere.embed-multilingual-v3  | 0.002           | 0.002            | AWS      | Embedding |
+| cohere.rerank-v3-5:0          | 0.002           | 0.002            | AWS      | Rerank    |
+| gemini-1.5-flash-001          |                 |                  | Vertex   | Chat      |
+| gemini-1.5-pro-001            |                 |                  | Vertex   | Chat      |
+| gemini-2.0-flash-001          |                 |                  | Vertex   | Chat      |
+| gemini-2.0-pro-exp-02-05      |                 |                  | Vertex   | Chat      |
+| gemini-2.0-flash-thinking-exp-01-21     |       |                  | Vertex   | Chat      |
+| deepseek-chat                 | 0.002(RMB)      | 0.008(RMB)       | DeepSeek | Chat      |
+| deepseek-reasoner           

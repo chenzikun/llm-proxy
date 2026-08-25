@@ -1,0 +1,62 @@
+# 文件上传
+```{admonition} POST &nbsp; /v1/files
+
+Header:  
+- Authorization: Bearer <font class="stress">$API_KEY</font>  
+- Content-Type: multipart/form-data
+
+参数：
+- <font class="haha">purpose</font>: string, 固定为"fine-tune"；
+- <font class="haha">file</font>: file, 文件；
+```
+
+
+::::{tab-set}
+
+:::{tab-item} `Curl`
+```shell
+curl -X POST \
+    http://proxy.aiapps.autel.com/v1/files \
+    -H "Authorization: Bearer $API" \
+    -F purpose="fine-tune" \
+    -F file="@/path/to/file/file.jsonl"
+```
+:::
+
+
+:::{tab-item} `Python`
+```python
+import json
+import requests
+
+url = "http://proxy.aiapps.autel.com/v1/files"
+api_key = "你的令牌"    # 替换为你的令牌
+
+headers = {"Authorization": f"Bearer {api_key}"}
+
+r = requests.post(url, 
+    data={"purpose": "fine-tune"}, 
+    files={"file": open(filepath, "rb")}, 
+    headers=headers
+)
+if not r.ok:
+    raise requests.HTTPError(f"Failed to request embeddings, {r.status_code}: {r.text}")
+
+print(r.json())
+```
+:::
+
+::::
+
+```{admonition} 返回值
+```json
+{
+  "id": "file-abc123",
+  "object": "file",
+  "bytes": 120000,
+  "created_at": 1677610602,
+  "filename": "mydata.jsonl",
+  "purpose": "fine-tune",
+}
+
+```

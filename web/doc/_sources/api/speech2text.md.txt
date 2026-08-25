@@ -1,0 +1,51 @@
+# Speech To Text
+语音转文字
+```{admonition} POST &nbsp; /v1/audio/transcriptions
+
+Header:  
+- Content-Type: multipart/form-data
+- Authorization: Bearer <font class="stress">$API_KEY</font>  
+
+参数：
+- <font class="haha">model</font>: string, 模型名称；
+- <font class="haha">file</font>: file, 音频文件；
+```
+
+
+::::{tab-set}
+
+:::{tab-item} `Curl`
+```shell
+curl -X POST \
+    http://proxy.aiapps.autel.com/v1/audio/transcriptions \
+    -H "Content-Type: multipart/form-data"  \
+    -H "Authorization: Bearer $API_KEY" \
+    -F model="whisper-1" \
+    -F file="@/path/to/file/audio.mp3"
+```
+:::
+
+:::{tab-item} `Python`
+```python
+import json
+import requests
+
+url = "http://proxy.aiapps.autel.com/v1/audio/transcriptions"
+api_key = "你的令牌"    # 替换为你的令牌
+headers = {"Authorization": f"Bearer {api_key}"}
+payload = {"model": "whisper-1"}
+r = requests.post(url, data=payload, files={"file": open(filepath, "rb")})
+if not r.ok:
+    raise requests.HTTPError(f"Failed to request embeddings, {r.status_code}: {r.text}")
+print(r.json())
+```
+:::
+
+::::
+
+```{admonition} 返回值
+```json
+{
+  "text": "Imagine the wildest idea that you've ever had, and you're curious about how it might scale to something that's a 100, a 1,000 times bigger. This is a place where you can get to do that."
+}
+```

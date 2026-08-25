@@ -1,0 +1,1019 @@
+<!doctype html>
+<html class="no-js" lang="cn" data-content_root="../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="反馈与建议" href="../feedback.html" /><link rel="prev" title="Bedrock提示词缓存" href="cache_bedrock.html" />
+
+    <!-- Generated with Sphinx 8.1.3 and Furo 2024.08.06 -->
+        <title>提示词工程 - llm-proxy</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=354aac6f" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=302659d7" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=2af94f47" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  --font-stack--headings: YouYuan, serif;
+  --code-font-size: 95%;
+  --admonition-font-size: 92%;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">llm-proxy</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><div class="sidebar-scroll"><a class="sidebar-brand" href="../index.html">
+  
+  
+  <span class="sidebar-brand-text">llm-proxy</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">开始</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../start.html">开始</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../api/chat.html">Chat</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/rerank.html">Rerank</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/embedding.html">Embedding</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/text2img.html">Text To Image</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/text2speech.html">Text To Speech</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api/speech2text.html">Speech To Text</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../api/finetune/index.html">Finetune</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of Finetune</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../api/finetune/file_upload.html">文件上传</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/finetune/file_list.html">获取文件列表</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/finetune/file_delete.html">删除文件</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/finetune/finetuning_create.html">创建微调任务</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/finetune/finetuning_list.html">获取微调任务列表</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api/finetune/finetuning_cancel.html">取消微调任务</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">模型列表</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../models.html">模型列表</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">最佳实践</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="cache_openai.html">OpenAI提示词缓存</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cache_bedrock.html">Bedrock提示词缓存</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">提示词工程</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">反馈与建议</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../feedback.html">反馈与建议</a></li>
+</ul>
+
+</div>
+</div>
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="../_sources/best_practices/prompt_engineering.md.txt" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div>
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="id1">
+<h1>提示词工程<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h1>
+<blockquote>
+<div><p>OpenAI 官方文档：<a class="reference external" href="https://platform.openai.com/docs/guides/prompt-engineering">Prompt Engineering</a></p>
+</div></blockquote>
+<p>运用提示工程策略增强结果。</p>
+<p>本指南分享了一些策略和方法，用于从大型语言模型（有时称为GPT模型）如GPT-4o中获得更好的结果。这里描述的方法有时可以组合使用以获得更理想的效果。我们鼓励大家进行实验以找出最适合您的方法。</p>
+<p>您还可以探索示例提示，展示我们模型的能力：</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://platform.openai.com/docs/examples">提示示例</a></p></li>
+</ul>
+<section id="id2">
+<h2>六种获取更好结果的策略<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h2>
+<section id="id3">
+<h3>撰写清晰的指令<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
+<p>这些模型不能读心术。如果输出太长，要求简短回复。如果输出太简单，要求专家级的写作。如果您不喜欢格式，请展示您想要的格式。模型越少需要猜测您的需求，您越有可能得到满意的结果。</p>
+<p>战术：</p>
+<ul class="simple">
+<li><p>在查询中包含细节以获得更相关的答案</p></li>
+<li><p>要求模型采用特定角色</p></li>
+<li><p>使用分隔符清晰标明输入的不同部分</p></li>
+<li><p>指明完成任务所需的步骤</p></li>
+<li><p>提供示例</p></li>
+<li><p>指定输出的期望长度</p></li>
+</ul>
+</section>
+<section id="id4">
+<h3>提供参考文本<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h3>
+<p>语言模型可能会自信地编造错误答案，尤其是在被问及偏僻主题或引用和URL时。就像笔记可以帮助学生在考试中表现更好一样，向这些模型提供参考文本可以帮助减少不实之词。</p>
+<p>战术：</p>
+<ul class="simple">
+<li><p>指导模型使用参考文本回答</p></li>
+<li><p>指导模型使用参考文本中的引用回答</p></li>
+</ul>
+</section>
+<section id="id5">
+<h3>将复杂任务分解为更简单的子任务<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h3>
+<p>正如软件工程中将复杂系统分解为一组模块化组件是良好实践一样，将提交给语言模型的任务分解为更简单的任务也是如此。复杂任务的错误率通常较高。此外，复杂任务通常可以重新定义为较简单任务的工作流程，其中较早任务的输出用于构建后续任务的输入。</p>
+<p>战术：</p>
+<ul class="simple">
+<li><p>使用意图分类来识别用户查询最相关的指令</p></li>
+<li><p>对于需要很长对话的对话应用，汇总或筛选以前的对话</p></li>
+<li><p>逐块汇总长文档并递归构建完整摘要</p></li>
+</ul>
+</section>
+<section id="id6">
+<h3>给模型时间“思考”<a class="headerlink" href="#id6" title="Link to this heading">¶</a></h3>
+<p>如果问17乘以28是多少，你可能不会立刻知道，但可以通过花时间计算出来。同样，模型试图迅速回答问题时会犯更多推理错误，而不是花时间推导出正确答案。要求在提供答案之前进行“思考链”可以帮助模型更可靠地推理出正确答案。</p>
+<p>战术：</p>
+<ul class="simple">
+<li><p>指导模型先设法解决自己的方案再得出结论</p></li>
+<li><p>使用内在独白或一系列查询隐藏模型的推理过程</p></li>
+<li><p>询问模型是否在先前的尝试中遗漏了任何内容</p></li>
+</ul>
+</section>
+<section id="id7">
+<h3>使用外部工具<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h3>
+<p>通过向模型提供其他工具的输出来补偿模型的不足。例如，一个文本检索系统（有时称为RAG或检索增强生成）可以告知模型有关相关文档的信息。像OpenAI的代码解释器这样的代码执行引擎可以帮助模型进行数学运算和运行代码。如果某个任务可以通过工具而不是语言模型更可靠或更高效地完成，请将其移交以获得最佳效果。</p>
+<p>战术：</p>
+<ul class="simple">
+<li><p>使用基于嵌入的搜索实现高效的知识检索</p></li>
+<li><p>使用代码执行进行更准确的计算或调用外部API</p></li>
+<li><p>为模型提供对特定功能的访问</p></li>
+</ul>
+</section>
+<section id="id8">
+<h3>系统地测试更改<a class="headerlink" href="#id8" title="Link to this heading">¶</a></h3>
+<p>如果您可以衡量性能，提高性能更容易。在某些情况下，对提示的修改会在几个孤立的示例中获得更好的性能，但在更具代表性的一组示例中导致整体性能下降。因此，要确保某一变化对性能有净正面影响，可能需要定义一个全面的测试套件（也称为“评估”）。</p>
+<p>战术：</p>
+<ul class="simple">
+<li><p>参考标准答案评估模型输出</p></li>
+</ul>
+</section>
+</section>
+<section id="id9">
+<h2>策略<a class="headerlink" href="#id9" title="Link to this heading">¶</a></h2>
+<p>上述每个策略都可以通过具体战术实现。这些策略旨在提供尝试的思路。它们绝不是全面的，您应随意尝试这里未涉及的创意。</p>
+<section id="id10">
+<h3>策略：撰写清晰的指令<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h3>
+<section id="id11">
+<h4>战术：在查询中包含细节以获得更相关的答案<a class="headerlink" href="#id11" title="Link to this heading">¶</a></h4>
+<p>为了获得高度相关的响应，请确保请求中包含任何重要细节或上下文。否则，您将其留给模型来猜测您的意思。</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p></p></th>
+<th class="head"><p></p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>较差</p></td>
+<td><p>较好</p></td>
+</tr>
+<tr class="row-odd"><td><p>如何在Excel中加数字？</p></td>
+<td><p>如何在Excel中加总一行美元金额？我想自动为整页行进行此操作，所有总数出现在名为“总计”的列的右侧。</p></td>
+</tr>
+<tr class="row-even"><td><p>谁是总统？</p></td>
+<td><p>2021年墨西哥总统是谁？选举多长时间举行一次？</p></td>
+</tr>
+<tr class="row-odd"><td><p>写计算斐波那契数列的代码。</p></td>
+<td><p>写一个TypeScript函数来高效计算斐波那契数列。大量注释代码以解释每个部分的作用及其写法原因。</p></td>
+</tr>
+<tr class="row-even"><td><p>总结会议记录。</p></td>
+<td><p>用一个段落总结会议记录。然后写一个讲者及其关键点的Markdown列表。最后，列出讲者建议的下一步或行动项（如有）。</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="id12">
+<h4>战术：要求模型采用特定角色<a class="headerlink" href="#id12" title="Link to this heading">¶</a></h4>
+<p>可以用系统消息指定模型在回复中使用的角色。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+当我请求帮助撰写内容时，您将在每段中至少包含一个笑话或诙谐评论的文档中回复。
+
+USER
+
+为我的钢螺栓供应商写一封感谢信，感谢他们按时并在短时间内送达。这使我们能够交付一份重要订单。
+</pre></div>
+</div>
+</section>
+<section id="id13">
+<h4>战术：使用分隔符清晰标明输入的不同部分<a class="headerlink" href="#id13" title="Link to this heading">¶</a></h4>
+<p>像三重引号、XML标记、章节标题等分隔符可以帮助标明需不同对待的文本部分。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>USER
+
+用一首俳句总结用三重引号分隔的文本。
+
+&quot;&quot;&quot;插入文本&quot;&quot;&quot;
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+您将获得两个关于同一主题的文章对（用XML标记分隔）。首先总结各自文章的论点。然后指出其中哪个论点更好并说明原因。
+
+USER
+
+&lt;article&gt; 第一篇文章内容 &lt;/article&gt;
+&lt;article&gt; 第二篇文章内容 &lt;/article&gt;
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+您将获得论文摘要及其建议标题。论文标题应让读者大致了解论文主题并且应引人注目。如果标题不符合这些标准，建议5个替代方案。
+
+USER
+
+摘要：插入摘要 
+
+标题：插入标题
+</pre></div>
+</div>
+<p>对于这些简单的任务，使用分隔符可能对输出质量没有影响。然而，任务越复杂，越需要明确任务细节。不要让模型猜测您到底在要求什么。</p>
+</section>
+<section id="id14">
+<h4>战术：指明完成任务所需的步骤<a class="headerlink" href="#id14" title="Link to this heading">¶</a></h4>
+<p>某些任务最好指定为一系列步骤。将步骤明确写出可以使模型更容易遵循。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+使用以下分步指令回复用户输入。
+步骤1 - 用户将提供用三重引号括起来的文本。用前缀“总结：”将此文本总结为一句话。
+步骤2 - 用前缀“翻译：”将步骤1中的总结翻译为西班牙语。
+
+USER
+
+&quot;&quot;&quot;插入文本&quot;&quot;&quot;
+</pre></div>
+</div>
+</section>
+<section id="id15">
+<h4>战术：提供示例<a class="headerlink" href="#id15" title="Link to this heading">¶</a></h4>
+<p>提供适用于所有示例的一般指令通常比示范任务的所有变体更有效，但在某些情况下提供示例可能更容易。例如，如果您打算让模型复制一种难以显式描述的用户查询响应风格。这称为“少量提示”或“few-shot”提示。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+以一致风格回答。
+
+USER
+
+教我关于耐心的知识。
+
+ASSISTANT
+
+雕刻最深峡谷的河流起源于不起眼的源泉；最壮丽的交响乐起源于单一音符；最复杂的挂毯始于孤单的线。
+
+USER
+
+教我关于海洋的知识。
+</pre></div>
+</div>
+</section>
+<section id="id16">
+<h4>战术：指定输出的期望长度<a class="headerlink" href="#id16" title="Link to this heading">¶</a></h4>
+<p>您可以要求模型生成指定目标长度的输出。目标输出长度可以用词、句子、段落、项目符号等的数量来指定。不过请注意，要求模型生成特定数量的单词精确度不高。模型更可靠地生成指定数量的段落或项目符号的输出。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>USER
+
+将用三重引号括起的文本总结为大约50个字。&quot;&quot;&quot;插入文本&quot;&quot;&quot;
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>USER
+
+将用三重引号括起的文本总结为2段。&quot;&quot;&quot;插入文本&quot;&quot;&quot;
+</pre></div>
+</div>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>USER
+
+将用三重引号括起的文本总结为3个项目符号。&quot;&quot;&quot;插入文本&quot;&quot;&quot;
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id17">
+<h3>策略：提供参考文本<a class="headerlink" href="#id17" title="Link to this heading">¶</a></h3>
+<section id="id18">
+<h4>战术：指导模型使用参考文本回答<a class="headerlink" href="#id18" title="Link to this heading">¶</a></h4>
+<p>如果我们能给模型提供与当前查询相关的可信信息，那么我们可以指导模型使用提供的信息来撰写答案。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+使用以三重引号分隔的提供文章回答问题。如果答案没在文章里，写“我找不到答案。”
+
+USER
+
+&lt;插入以三重引号分隔的文章&gt; 
+
+问题：&lt;插入问题&gt;
+</pre></div>
+</div>
+<p>鉴于所有模型都有有限的上下文窗口，我们需要某种方式动态地查找与所问问题相关的信息。可以使用<a class="reference external" href="https://platform.openai.com/docs/guides/embeddings#what-are-embeddings">嵌入</a>来实现高效的知识检索。有关如何实现此功能的更多详细信息，请参阅战术<a class="reference internal" href="#tactic-use-embeddings-based-search-to-implement-efficient-knowledge-retrieval"><span class="xref myst">“使用基于嵌入的搜索实现高效的知识检索”</span></a>。</p>
+</section>
+<section id="id19">
+<h4>战术：指导模型使用参考文本中的引用回答<a class="headerlink" href="#id19" title="Link to this heading">¶</a></h4>
+<p>如果输入已补充相关知识，可以简便地请求模型通过引用所提供文档中的段落来在答案中添加引用。注意，输出中的引用可以通过在提供的文档中进行字符串匹配以编程方式验证。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+您将获得用三重引号括起来的文档和一个问题。您的任务是仅使用提供的文档回答问题，并引用用于回答问题的文档段落。如果文档不包含回答问题所需的信息，则简单写出：“信息不足。” 如果提供问题的答案，必须附加引用。使用以下格式来引用相关段落（{&quot;来源&quot;：…}）。
+
+USER
+
+&quot;&quot;&quot;&lt;插入文档&gt;&quot;&quot;&quot; 
+
+问题：&lt;插入问题&gt;
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id20">
+<h3>策略：将复杂任务分解为更简单的子任务<a class="headerlink" href="#id20" title="Link to this heading">¶</a></h3>
+<section id="id21">
+<h4>战术：使用意图分类来识别用户查询最相关的指令<a class="headerlink" href="#id21" title="Link to this heading">¶</a></h4>
+<p>对于需要大量独立指令集来处理不同情况的任务，首先对查询类型进行分类，并使用该分类来确定所需指令可能是有益的。这可以通过定义固定分类和硬编码处理给定类别任务相关的指令来实现。此过程也可以递归地应用于将任务分解为一系列阶段。该方法的优点在于每个查询都仅包含执行任务的下一阶段所需的指令，与使用单个查询执行整个任务相比，可以降低错误率。这也可以降低成本，因为较大的提示运行成本更高（参见<a class="reference external" href="https://openai.com/api/pricing">定价信息</a>）。</p>
+<p>例如，假设对客户服务应用程序，查询可以有用地分类如下：</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+您将获得客户服务查询。将每个查询分类为一个主要类别和一个次要类别。以json格式提供输出，使用键：主要 和 次要。
+主要类别：计费、技术支持、帐户管理或一般咨询。
+计费次要类别：
+- 取消订阅或升级
+- 添加付款方式
+- 收费说明
+- 争议收费
+技术支持次要类别：
+- 故障排除
+- 设备兼容性
+- 软件更新
+帐户管理次要类别：
+- 密码重置
+- 更新个人信息
+- 关闭帐户
+- 帐户安全
+一般咨询次要类别：
+- 产品信息
+- 定价
+- 反馈
+- 与人交谈
+
+USER
+
+我需要重新开始使用我的互联网。
+</pre></div>
+</div>
+<p>根据客户查询的分类，可以为模型提供一组更具体的指令来处理后续步骤。例如，假设客户需要“故障排除”帮助。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+您将获得在技术支持环境中需要故障排除的客户服务查询。通过以下方式帮助用户：
+- 要求他们检查所有路由器的电缆是否连接。请注意，电缆常会随着时间松动。
+- 如果所有电缆都已连接，问题仍然存在，请询问他们正在使用哪个路由器型号。
+- 现在建议他们如何重启设备：
+-- 如果型号是MTD-327J，建议按下红色按钮并保持5秒钟，然后等待5分钟再测试连接。
+-- 如果型号是MTD-327S，建议拔下并重新插上，然后等待5分钟再测试连接。
+- 如果客户在重启设备并等待5分钟后问题仍然存在，通过输出{&quot;请求IT支持&quot;}将他们连接到IT支持。
+- 如果用户开始询问与此主题无关的问题，请确认是否要结束当前关于故障排除的聊天，并根据以下方案对其请求分类：&lt;插入主要/次要分类方案&gt;
+
+USER
+
+我需要重新开始使用我的互联网。
+</pre></div>
+</div>
+<p>注意，模型已被指示生成特殊字符串以指示对话状态的变化。这使我们可以将系统变成一个状态机，其中状态决定注入的指令。通过跟踪状态、该状态相关的指令以及可选择的从该状态允许的状态转换，我们可以在用户体验周围放置护栏，而这用较少结构化的方法难以实现。</p>
+</section>
+<section id="id22">
+<h4>战术：对于需要很长对话的对话应用，汇总或筛选以前的对话<a class="headerlink" href="#id22" title="Link to this heading">¶</a></h4>
+<p>由于模型有固定的上下文长度，用户和助手之间的对话如果整个对话都包含在上下文窗口中，不能持续不间断。</p>
+<p>此问题有各种解决方案之一是汇总对话中的先前回合。一旦输入大小达到预定的阈值长度，这可能触发一个查询，汇总部分对话，先前对话的汇总可作为系统消息的一部分提供。或者，在整场对话期间，先前的对话可以异步地在后台汇总。</p>
+<p>一种替代解决方案是动态选择最相关于当前查询的先前对话部分。参见策略<a class="reference internal" href="#tactic-use-embeddings-based-search-to-implement-efficient-knowledge-retrieval"><span class="xref myst">“使用基于嵌入的搜索实现高效的知识检索”</span></a>。</p>
+</section>
+<section id="id23">
+<h4>战术：逐块汇总长文档并递归构建完整摘要<a class="headerlink" href="#id23" title="Link to this heading">¶</a></h4>
+<p>由于模型有固定的上下文长度，它们无法在单个查询中对比生成摘要更长的文本进行摘要。</p>
+<p>要汇总很长的文档（如一本书），我们可以使用一系列查询对文档的每个部分进行汇总。这些部分摘要可以串连并汇总，产生总结摘要的摘要。此过程可以递归进行，直到整个文档被总结。如果有必要使用先前章节的信息来理解后续章节，那么一个有用的技巧是包含文本的运行摘要，该摘要在书中某点之前汇总，而在该点上总结内容。这种程序用于汇总书籍的有效性已在OpenAI的<a class="reference external" href="https://openai.com/research/summarizing-books">研究</a>中得到探讨。</p>
+</section>
+</section>
+<section id="id24">
+<h3>策略：给模型时间“思考”<a class="headerlink" href="#id24" title="Link to this heading">¶</a></h3>
+<section id="id25">
+<h4>战术：指导模型先设法解决自己的方案再得出结论<a class="headerlink" href="#id25" title="Link to this heading">¶</a></h4>
+<p>有时，当我们明确指示模型从基本原理推理再得出结论时，会获得更好结果。假设例如，我们想让模型评估学生对数学问题的解。最明显的方法是简单地询问模型学生的解决方案是否正确。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+确定学生的解决方案是否正确。
+
+USER
+
+问题陈述：我在建太阳能装置，我需要帮助计算财务。
+- 土地费用$100 / 平方英尺
+- 我可以买$250/平方英尺的太阳能板
+- 我商定了一份维护合同，会花费我年均固定10万美元，外加每平方英尺10美元
+第一年运营的总费用是多少作为平方英尺数的函数。
+学生的解决方案：设x为装置大小平方英尺。
+1. 土地费用：100x
+2. 太阳能板费用：250x
+3. 维护费用：100,000 + 100x
+总费用：100x + 250x + 100,000 + 100x = 450x + 100,000
+
+ASSISTANT
+
+学生的解决方案是正确的。
+</pre></div>
+</div>
+<p>但学生的解决方案实际上不正确！我们可以通过首先提示模型生成自己的解决方案来成功注意到这一点。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+首先找出自己的问题解决方案。然后比较你的解决方案与学生的解决方案，评估学生的解决方案是否正确。在你完成问题之前不要决定学生的解决方案是否正确。
+
+USER
+
+问题陈述：我在建太阳能装置，我需要帮助计算财务。
+- 土地费用$100 / 平方英尺
+- 我可以买$250/平方英尺的太阳能板
+- 我商定了一份维护合同，会花费我年均固定10万美元，外加每平方英尺10美元
+第一年运营的总费用是多少作为平方英尺数的函数。
+学生的解决方案：设x为装置大小平方英尺。
+1. 土地费用：100x
+2. 太阳能板费用：250x
+3. 维护费用：100,000 + 100x
+总费用：100x + 250x + 100,000 + 100x = 450x + 100,000
+
+ASSISTANT
+
+设x为装置大小平方英尺。
+1. 土地费用：100x
+2. 太阳能板费用：250x
+3. 维护费用：100,000 + 10x
+总费用：100x + 250x + 100,000 + 10x = 360x + 100,000
+学生的解决方案是错误的。他们在维护费用计算中出错，使用了100x而不是10x。第一年运营的正确总费用是360x + 100,000。
+</pre></div>
+</div>
+</section>
+<section id="id26">
+<h4>战术：使用内在独白或一系列查询隐藏模型的推理过程<a class="headerlink" href="#id26" title="Link to this heading">¶</a></h4>
+<p>上一战术展示有时重要的事是模型在回答特定问题前详细推理。对于一些应用程序来说，模型用来得出最终答案的推理过程不宜向用户展示。例如，在辅导应用中，我们可能希望鼓励学生自己解题，但模型对学生解答的推理可能向学生透露答案。</p>
+<p>内在独白是可用来减轻此问题的策略。内在独白的思想是让模型用指定格式将意图隐藏给用户的输出部分写出，使其易于解析。然后在向用户展示输出之前，解析输出并仅显示部分输出。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+按照以下步骤回答用户查询。
+步骤1 - 首先自己找到问题解决方案。不要依赖于学生的解决方案，因为其可能是错误的。将该步骤的所有工作用三重引号括起来（&quot;&quot;&quot;）。
+步骤2 - 将您自己的解决方案与学生的解决方案进行比较并评估学生的解决方案是否正确。将该步骤的所有工作用三重引号括起来（&quot;&quot;&quot;）。
+步骤3 - 如果学生犯了错误，找出在不透露答案的情况下可以给学生提供的提示。将该步骤的所有工作用三重引号括起来（&quot;&quot;&quot;）。
+步骤4 - 若学生有错误，提供上一步的提示给学生（不在三重引号内）。用&quot;提示：&quot;代替&quot;步骤4 - ...&quot;。
+
+USER
+
+问题陈述：&lt;插入问题陈述&gt; 学生解答：&lt;插入学生解答&gt;
+</pre></div>
+</div>
+<p>另外，这可以借助一系列查询实现，其中除最后一个查询外的所有查询均隐藏输出给最终用户。</p>
+<p>首先，我们可以要求模型自行解题。由于此初始查询不需要学生的解答，因此可以省略它。这提供了额外的优点，即模型的解答不会受学生尝试解的影响而偏见。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>USER
+
+&lt;插入问题陈述&gt;
+
+接下来，我们可以让模型使用所有可用信息评估学生解答的正确性。
+
+SYSTEM
+
+比较您的解决方案与学生的解决方案，并评估学生的解决方案是否正确。
+
+USER
+
+问题陈述：&quot;&quot;&quot;&lt;插入问题陈述&gt;&quot;&quot;&quot;
+您的解决方案：&quot;&quot;&quot;&lt;插入模型生成解决方案&gt;&quot;&quot;&quot;
+学生解答：&quot;&quot;&quot;&lt;插入学生解答&gt;&quot;&quot;&quot;
+</pre></div>
+</div>
+<p>最后，我们可以让模型利用自身分析以乐于助人的导师角色构建回复。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+您是数学导师。如学生出错误，在不透露答案情况下给予提示给学生。如学生未发错误，仅给予鼓励。
+
+USER
+
+问题陈述：&quot;&quot;&quot;&lt;插入问题陈述&gt;&quot;&quot;&quot;
+您的解决方案：&quot;&quot;&quot;&lt;插入模型生成解决方案&gt;&quot;&quot;&quot;
+学生解答：&quot;&quot;&quot;&lt;插入学生解答&gt;&quot;&quot;&quot;
+分析：&quot;&quot;&quot;&lt;插入之前步骤生成模型分析&gt;&quot;&quot;&quot;
+</pre></div>
+</div>
+</section>
+<section id="id27">
+<h4>战术：询问模型是否在先前的尝试中遗漏了任何内容<a class="headerlink" href="#id27" title="Link to this heading">¶</a></h4>
+<p>假设我们正在使用模型列出与特定问题相关的来源摘录。在列出每个摘录后，模型需要确定是否应开始写下一个或应停止。如果源文档较大，模型常过早停止未能列出所有相关摘录。在这种情况下，通过后续查询提示模型找出之前遗漏的摘录往往可以获得更好性能。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+您将获得用三重引号括起来的文档。您的任务是选择与以下问题相关的摘录：“在人工智能历史中有哪些显著的范式转变。”确保摘录包含理解它们所需的所有相关上下文——换句话说，不要只抽取缺少重要上下文的小片段。输出以JSON格式提供，如下：\[{&quot;摘录&quot;: &quot;...&quot;}, ... {&quot;摘录&quot;: &quot;...&quot;}\]
+
+USER
+
+&quot;&quot;&quot;&lt;插入文档&gt;&quot;&quot;&quot;
+
+ASSISTANT
+
+\[{&quot;摘录&quot;: &quot;模型在此写入摘录&quot;}, ... {&quot;摘录&quot;: &quot;模型在此写入另一个摘录&quot;}\]
+
+USER
+
+还有更多相关摘录吗？注意不要重复摘录。确保摘录包含所有必要的上下文来解释它们——换句话说，不要只抽取缺少重要上下文的小片段。
+</pre></div>
+</div>
+</section>
+</section>
+<section id="id28">
+<h3>策略：使用外部工具<a class="headerlink" href="#id28" title="Link to this heading">¶</a></h3>
+<section id="id29">
+<h4>战术：使用基于嵌入的搜索实现高效的知识检索<a class="headerlink" href="#id29" title="Link to this heading">¶</a></h4>
+<p>如果作为输入提供模型，则模型可以利用外部信息来源。这可以帮助模型生成更加知情和最新的回复。例如，如果用户询问关于特定电影的问题，可能在模型输入中添加有关该电影的高质量信息（例如演员、导演等）很有用。</p>
+<p>嵌入可以用于实现高效的知识检索，以便在运行时动态为模型输入添加相关信息。</p>
+<p>文本嵌入是一种向量，可以度量文本字符串之间的相关性。相似或相关字符串将更加接近，而不相关的字符串则更为分离。利用这一事实以及快速向量搜索算法的存在意味着嵌入可以用于实现高效的知识检索。具体来说，可以将一个文本库分割成多个块，每个块嵌入并存储。然后可以将给定查询嵌入并执行向量搜索以找到与查询最相关的文本块（即在嵌入空间中最接近的）。</p>
+<p>示例实施可以在<a class="reference external" href="https://cookbook.openai.com/examples/vector_databases/readme">OpenAI Cookbook</a>中找到。有关如何使用知识检索最大限度减少模型出错可能性的示例，请参见策略<a class="reference internal" href="#tactic-instruct-the-model-to-answer-using-a-reference-text"><span class="xref myst">“指导模型使用参考文本回答”</span></a>。</p>
+</section>
+<section id="api">
+<h4>战术：使用代码执行进行更准确的计算或调用外部API<a class="headerlink" href="#api" title="Link to this heading">¶</a></h4>
+<p>语言模型无法仅凭自身准确进行算术或长计算。在需要这种情况下，可以指导模型编写和运行代码而不是进行自己的计算。特别地，可以指导模型将要运行的代码放入指定格式中，如三重反引号。生成输出后，可以提取代码并运行。最后，如有必要，可以将来自代码执行引擎（即Python解释器）的输出作为输入提供给模型以进行后续查询。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+您可以通过将Python代码用三重反引号括起来来编写和执行它，例如 ```代码在此输入```。用此来执行计算。
+
+USER
+
+寻找以下多项式的所有实值根：3*x**5 - 5*x**4 - 3*x**3 - 7*x - 10.。
+</pre></div>
+</div>
+<p>使用代码执行的另一个良好用例是调用外部API。如果一个模型被指导正确使用API，它可以编写使用它的代码。可以通过提供文档和/或代码示例展示如何使用API来指导模型使用API。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+您可以通过将Python代码用三重反引号括起来编写和执行它。还注意您可访问以下模块帮助用户给朋友发送消息：
+```python
+import message
+message.write(to=&quot;John&quot;, message=&quot;Hey, want to meetup after work?&quot;)
+</pre></div>
+</div>
+<p><strong>警告：执行模型生成的代码固有地并不安全，任何着眼于进行此操作的应用需采取预防措施。特别地，需隔离执行环境以限制不可信代码可能造成的损害。</strong></p>
+</section>
+<section id="id30">
+<h4>战术：为模型提供对特定功能的访问<a class="headerlink" href="#id30" title="Link to this heading">¶</a></h4>
+<p>Chat Completions API 允许在请求中传递函数描述列表。这使得模型可以根据提供的模式生成函数参数。生成的函数参数由API以JSON格式返回，并可用于执行函数调用。申明由函数调用提供的输出然后可在后续请求中反馈至模型以形成闭环。这是使用OpenAI模型调用外部函数的推荐方式。欲了解更多，请参阅我们文本生成指南入门的<a class="reference external" href="https://platform.openai.com/docs/guides/function-calling">函数调用章节</a>及更多函数调用示例（<a class="reference external" href="https://cookbook.openai.com/examples/how_to_call_functions_with_chat_models">OpenAI Cookbook</a>）。。</p>
+</section>
+</section>
+<section id="id31">
+<h3>策略：系统地测试更改<a class="headerlink" href="#id31" title="Link to this heading">¶</a></h3>
+<p>有时很难判断某一变化如新指令或新设计是否使您的系统更好或更糟。查看几个示例或许能暗示哪一个更好，但样本量小时难以区分真正改善和运气随机。也许变化有助于某些输入表现，却损害其他表现。</p>
+<p>评估程序（或“评估”）对优化系统设计用处很大。好的评估应：</p>
+<ul class="simple">
+<li><p>代表真实使用场景（或至少多样化）</p></li>
+<li><p>包含大量测试案例以获得更大统计效能（见下表指南）</p></li>
+<li><p>易于自动化或重复</p></li>
+</ul>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>差异检测</p></th>
+<th class="head"><p>需要样本量以获得95%的置信度</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>30%</p></td>
+<td><p>~10</p></td>
+</tr>
+<tr class="row-odd"><td><p>10%</p></td>
+<td><p>~100</p></td>
+</tr>
+<tr class="row-even"><td><p>3%</p></td>
+<td><p>~1,000</p></td>
+</tr>
+<tr class="row-odd"><td><p>1%</p></td>
+<td><p>~10,000</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>输出评估可以由计算机、人类或两者结合完成。计算机可以以客观标准（例如问题只有单一正确答案的问题）自动评估。以及某些主观或模糊标准，可模型输出由其他模型查询评估。OpenAI Evals 是提供创建自动化评估工具的开源软件框架。</p>
+<p>在存在许多可能输出被视为质量同等高的情况下，模型评估可能有用（例如答案较长的问题）。模型评估可以现实地评估的界限与需要人类评估的界限模棱两可，并随着模型能力增强不断拓展。我们鼓励进行实验来找到模型评估在您的用例中究竟表现如何。</p>
+<section id="id32">
+<h4>战术：参考标准答案评估模型输出<a class="headerlink" href="#id32" title="Link to this heading">¶</a></h4>
+<p>假设已知某问题的正确答案应引用特定的已知事实集。那么我们可以使用模型查询来计算答案中包含了多少必要事实。</p>
+<p>例如，使用以下系统消息:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+您将获得以三重引号括起的数据，需检查已给出答案中是否直接包含以下信息：
+- 尼尔·阿姆斯特朗是第一个登上月球的人。
+- 阿姆斯特朗首次登上月球的日期是1969年7月21日。
+对于每个点执行以下步骤：
+1 - 重申该点。
+2 - 提供答案中最接近该点的引用。
+3 - 考虑一个不熟悉该主题的人是否会直接从引用中得出该点的结论。解释为什么或为什么不，然后再作出决定。
+4 - 如果第3项回答为是则写&quot;是&quot;,否则写&quot;否&quot;。
+最后，提供&quot;是&quot;答案的数量作为{&quot;count&quot;: &lt;插入数量&gt;}。
+</pre></div>
+</div>
+<p>以下是两个点均满足的示例输入：</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">SYSTEM</span>
+
+<span class="o">&lt;</span><span class="n">插入以上系统消息</span><span class="o">&gt;</span>
+
+<span class="n">USER</span>
+
+<span class="sd">&quot;&quot;&quot;尼尔·阿姆斯特朗因成为第一个登上月球的人而闻名。此历史事件发生在1969年7月21日，阿波罗11号任务期间。&quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p>以下是仅一个点满足的示例输入：</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">SYSTEM</span>
+
+<span class="o">&lt;</span><span class="n">插入以上系统消息</span><span class="o">&gt;</span>
+
+<span class="n">USER</span>
+
+<span class="sd">&quot;&quot;&quot;尼尔·阿姆斯特朗创造历史，因登离月球舱成为第一个走上月球的人。&quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p>以下是无一达到的示例输入：</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">SYSTEM</span>
+
+<span class="o">&lt;</span><span class="n">插入以上系统消息</span><span class="o">&gt;</span>
+
+<span class="n">USER</span>
+
+<span class="sd">&quot;&quot;&quot;1969年夏，旅行伟大，阿波罗11雄立传说手。阿姆斯特朗跨步，历史展开，“一步微小，”他说，迈向新世界。&quot;&quot;&quot;</span>
+</pre></div>
+</div>
+<p>这种基于模型的评估样式存在许多可能变种。可考虑以下变体，该变体跟踪候选答案与标准答案的重叠类型，同时跟踪候选答案是否与任何标准答案相矛盾。</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+使用以下步骤来响应用户输入。完整重述每个步骤再继续。如&quot;步骤1：推理...&quot;。
+步骤1：逐步推理提交答案与专家答案中的信息是否：不相交、相同、子集、超集或重叠（即部分交集但非子集/超集）。
+步骤2：逐步推理提交答案是否与专家答案的任何方面相矛盾。
+步骤3：输出JSON对象结构如下：{&quot;type\_of\_overlap&quot;: &quot;不相交&quot;或&quot;相等&quot;或&quot;子集&quot;或&quot;超集&quot;或&quot;重叠&quot;, &quot;矛盾&quot;: true或false}
+</pre></div>
+</div>
+<p>以下是一个尽管答案不佳但不与专家答案矛盾的示例输入：</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+&lt;插入以上系统消息&gt;
+
+USER
+
+问题：&quot;&quot;&quot;尼尔·阿姆斯特朗最闻名于哪个事件，而这一事件发生在哪一天？假设使用全球协调时间。&quot;&quot;&quot;
+提交答案：&quot;&quot;&quot;他是否登上了月球之类的？&quot;&quot;&quot;
+专家答案：&quot;&quot;&quot;尼尔·阿姆斯特朗最为人知的是成为第一个登上月球的人。这一历史事件发生在1969年7月21日。&quot;&quot;&quot;
+</pre></div>
+</div>
+<p>以下是一个答案与专家答案直接矛盾的示例输入：</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+&lt;插入以上系统消息&gt;
+
+USER
+
+问题：&quot;&quot;&quot;尼尔·阿姆斯特朗最闻名于哪个事件，而这一事件发生在哪一天？假设使用全球协调时间。&quot;&quot;&quot;
+提交答案：&quot;&quot;&quot;1969年7月21日，阿姆斯特朗成为第二个登上月球的人，紧随巴兹·奥尔德林之后。&quot;&quot;&quot;
+专家答案：&quot;&quot;&quot;尼尔·阿姆斯特朗最为人知是第一个登上月球的人。这一历史事件发生于1969年7月21日。&quot;&quot;&quot;
+</pre></div>
+</div>
+<p>以下是一个正确答案的示例输入，即使它比必要的详细提供了更多信息：</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>SYSTEM
+
+&lt;插入以上系统消息&gt;
+
+USER
+
+问题：&quot;&quot;&quot;尼尔·阿姆斯特朗最闻名于哪个事件，而这一事件发生在哪一天？假设使用全球协调时间。&quot;&quot;&quot;
+提交答案：&quot;&quot;&quot;1969年7月21日约02:56时，尼尔·阿姆斯特朗成为第一个人类踏上月球表面，标志着人类历史上的重大成就。&quot;&quot;&quot;
+专家答案：&quot;&quot;&quot;尼尔·阿姆斯特朗最为人知是第一个登上月球的人。这一历史事件发生于1969年7月21日。&quot;&quot;&quot;
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="id33">
+<h2>其他资源<a class="headerlink" href="#id33" title="Link to this heading">¶</a></h2>
+<p>欲获取更多灵感，访问<a class="reference external" href="https://cookbook.openai.com">OpenAI Cookbook</a>，其中包含代码示例及与第三方资源的链接，如：</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://cookbook.openai.com/related_resources#prompting-libraries--tools">提示库和工具</a></p></li>
+<li><p><a class="reference external" href="https://cookbook.openai.com/related_resources#prompting-guides">提示指南</a></p></li>
+<li><p><a class="reference external" href="https://cookbook.openai.com/related_resources#video-courses">视频课程</a></p></li>
+<li><p><a class="reference external" href="https://cookbook.openai.com/related_resources#papers-on-advanced-prompting-to-improve-reasoning">通过高级提示改进推理的论文</a></p></li>
+</ul>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="../feedback.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">反馈与建议</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="cache_bedrock.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Bedrock提示词缓存</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2024, gaojian
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">提示词工程</a><ul>
+<li><a class="reference internal" href="#id2">六种获取更好结果的策略</a><ul>
+<li><a class="reference internal" href="#id3">撰写清晰的指令</a></li>
+<li><a class="reference internal" href="#id4">提供参考文本</a></li>
+<li><a class="reference internal" href="#id5">将复杂任务分解为更简单的子任务</a></li>
+<li><a class="reference internal" href="#id6">给模型时间“思考”</a></li>
+<li><a class="reference internal" href="#id7">使用外部工具</a></li>
+<li><a class="reference internal" href="#id8">系统地测试更改</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id9">策略</a><ul>
+<li><a class="reference internal" href="#id10">策略：撰写清晰的指令</a><ul>
+<li><a class="reference internal" href="#id11">战术：在查询中包含细节以获得更相关的答案</a></li>
+<li><a class="reference internal" href="#id12">战术：要求模型采用特定角色</a></li>
+<li><a class="reference internal" href="#id13">战术：使用分隔符清晰标明输入的不同部分</a></li>
+<li><a class="reference internal" href="#id14">战术：指明完成任务所需的步骤</a></li>
+<li><a class="reference internal" href="#id15">战术：提供示例</a></li>
+<li><a class="reference internal" href="#id16">战术：指定输出的期望长度</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id17">策略：提供参考文本</a><ul>
+<li><a class="reference internal" href="#id18">战术：指导模型使用参考文本回答</a></li>
+<li><a class="reference internal" href="#id19">战术：指导模型使用参考文本中的引用回答</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id20">策略：将复杂任务分解为更简单的子任务</a><ul>
+<li><a class="reference internal" href="#id21">战术：使用意图分类来识别用户查询最相关的指令</a></li>
+<li><a class="reference internal" href="#id22">战术：对于需要很长对话的对话应用，汇总或筛选以前的对话</a></li>
+<li><a class="reference internal" href="#id23">战术：逐块汇总长文档并递归构建完整摘要</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id24">策略：给模型时间“思考”</a><ul>
+<li><a class="reference internal" href="#id25">战术：指导模型先设法解决自己的方案再得出结论</a></li>
+<li><a class="reference internal" href="#id26">战术：使用内在独白或一系列查询隐藏模型的推理过程</a></li>
+<li><a class="reference internal" href="#id27">战术：询问模型是否在先前的尝试中遗漏了任何内容</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id28">策略：使用外部工具</a><ul>
+<li><a class="reference internal" href="#id29">战术：使用基于嵌入的搜索实现高效的知识检索</a></li>
+<li><a class="reference internal" href="#api">战术：使用代码执行进行更准确的计算或调用外部API</a></li>
+<li><a class="reference internal" href="#id30">战术：为模型提供对特定功能的访问</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id31">策略：系统地测试更改</a><ul>
+<li><a class="reference internal" href="#id32">战术：参考标准答案评估模型输出</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id33">其他资源</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=210c1e71"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scripts/furo.js?v=5fa4622c"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    </body>
+</html>

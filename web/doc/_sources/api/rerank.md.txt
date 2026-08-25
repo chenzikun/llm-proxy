@@ -1,0 +1,88 @@
+# Rerank
+重排序模型接口
+```{admonition} POST &nbsp; /v1/rerank  
+
+Header:  
+- Content-Type: application/json  
+- Authorization: Bearer <font class="stress">$API_KEY</font>  
+
+参数：
+- <font class="haha">model</font>: string, 模型名称；
+- <font class="haha">query</font>: string, 查询文本；
+- <font class="haha">documents</font>: List[string],文档列表；
+- <font class="haha">top_n</font>: int, 需要返回的文档数量；
+```
+
+::::{tab-set}
+
+:::{tab-item} `Curl`
+```shell
+curl -X POST \
+    http://proxy.aiapps.autel.com/v1/rerank \
+   -H 'Content-Type: application/json' \
+   -H "Authorization: Bearer $API_KEY" \
+   -d '{
+        "model": "cohere.rerank-v3-5:0",
+        "query": "What is the capital of France?",
+        "documents": ["Paris is the capital of France.", "The capital of England is London."],
+        "top_n": 3
+    }'
+```
+:::
+
+:::{tab-item} `Python`
+```python
+import json
+import requests
+
+url = "http://proxy.aiapps.autel.com/v1/rerank"
+api_key = "你的令牌"    # 替换为你的令牌
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {api_key}"
+}
+
+payload = {
+    "model": model, 
+    "input": text, 
+    "encoding_format": "float", 
+    "input_type": "classification"
+}
+r = requests.post(url, json=payload, headers=headers)
+if not r.ok:
+    raise requests.HTTPError(f"Failed to request rerank, {r.status_code}: {r.text}")
+print(r.json())
+```
+:::
+
+::::
+
+```{admonition} 返回值
+```json
+{
+  "results": [
+    {
+      "index": 2,
+      "relevance_score": 0.90227455
+    },
+    {
+      "index": 0,
+      "relevance_score": 0.8923472
+    },
+    {
+      "index": 1,
+      "relevance_score": 0.108897865
+    }
+  ],
+  "id": "",
+  "meta": {
+    "api_version": {
+      "version": "",
+      "is_experimental": false
+    },
+    "billed_units": {
+      "search_units": 0
+    }
+  }
+}
+```

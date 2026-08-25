@@ -1,0 +1,62 @@
+# 获取文件列表
+```{admonition} GET &nbsp; /api/files
+
+Header:  
+- Authorization: Bearer <font class="stress">$API_KEY</font>  
+```
+
+
+::::{tab-set}
+
+:::{tab-item} `Curl`
+```shell
+curl http://proxy.aiapps.autel.com/v1/files \
+    -H "Authorization: Bearer $API_KEY"
+```
+:::
+
+:::{tab-item} `Python`
+```python
+import json
+import requests
+
+url = "http://proxy.aiapps.autel.com/v1/files"
+api_key = "你的令牌"    # 替换为你的令牌
+
+headers = {"Authorization": f"Bearer {api_key}"}
+
+r = requests.get(url, headers=headers)
+if not r.ok:
+    raise requests.HTTPError(f"Failed to request embeddings, {r.status_code}: {r.text}")
+
+print(r.json())
+```
+
+:::
+
+::::
+
+```{admonition} 返回值
+```json
+{
+  "data": [
+    {
+      "id": "file-abc123",
+      "object": "file",
+      "bytes": 175,
+      "created_at": 1613677385,
+      "filename": "salesOverview.pdf",
+      "purpose": "assistants",
+    },
+    {
+      "id": "file-abc123",
+      "object": "file",
+      "bytes": 140,
+      "created_at": 1613779121,
+      "filename": "puppy.jsonl",
+      "purpose": "fine-tune",
+    }
+  ],
+  "object": "list"
+}
+```

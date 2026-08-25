@@ -1,0 +1,15 @@
+# 开始
+
+### 认证
+使用前需要先获取认证令牌
+
+### 环境
+```{admonition} 环境
+内网环境：[http://proxy.aiapps.autel.com](http://proxy.aiapps.autel.com)  
+中国开发：[https://ai-llms-proxy.auteltech.cn](https://ai-llms-proxy.auteltech.cn)  
+美西测试：[https://ai-llms-proxy-enetestus.autel.com](https://ai-llms-proxy-enetestus.autel.com)  
+美国生产：[https://ai-llms-proxy-eneprodus.autel.com](https://ai-llms-proxy-eneprodus.autel.com)  
+欧洲生产：[https://ai-llms-proxy-eneprodeu.autel.com](https://ai-llms-proxy-eneprodeu.autel.com)  
+亚太生产：[https://ai-llms-proxy-eneprodap.autel.com](https://ai-llms-proxy-eneprodap.autel.com)  
+加拿大生产：[https://ai-llms-proxy-eneprodca.autel.com](https://ai-llms-proxy-eneprodca.autel.com)  
+```

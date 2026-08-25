@@ -1,0 +1,47 @@
+# 删除文件
+```{admonition} DELETE &nbsp; /api/files/<font class="stress">{file_id}</font>
+
+Header:  
+- Authorization: Bearer <font class="stress">$API_KEY</font>  
+```
+
+
+::::{tab-set}
+
+:::{tab-item} `Curl`
+```shell
+curl http://proxy.aiapps.autel.com/v1/files/file-abc123\
+    -X DELETE \
+    -H "Authorization: Bearer $API_KEY"
+```
+:::
+
+:::{tab-item} `Python`
+```python
+import json
+import requests
+
+url = "http://proxy.aiapps.autel.com/v1/files/file-abc123"
+api_key = "你的令牌"    # 替换为你的令牌
+
+headers = {"Authorization": f"Bearer {api_key}"}
+
+r = requests.delete(url, headers=headers)
+if not r.ok:
+    raise requests.HTTPError(f"Failed to request embeddings, {r.status_code}: {r.text}")
+
+print(r.json())
+```
+
+:::
+
+::::
+
+```{admonition} 返回值
+```json
+{
+  "id": "file-abc123",
+  "object": "file",
+  "deleted": true
+}
+```

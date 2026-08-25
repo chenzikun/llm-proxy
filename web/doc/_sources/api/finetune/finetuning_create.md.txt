@@ -1,0 +1,69 @@
+# 创建微调任务
+
+```{admonition} POST &nbsp; /v1/fine_tuning/jobs  
+
+Header:  
+- Authorization: Bearer <font class="stress">$API_KEY</font>  
+- Content-Type: application/json
+
+参数：
+- <font class="haha">training_file</font>: string, 文件ID；
+- <font class="haha">model</font>: string, 模型名称；
+```
+
+
+::::{tab-set}
+
+:::{tab-item} `Curl`
+```shell
+curl -X POST \
+    http://proxy.aiapps.autel.com/v1/fine_tuning/jobs \
+    -H 'Content-Type: application/json' \
+    -H "Authorization: Bearer $API_KEY" \
+    -d '{
+      "training_file": "file-BK7bzQj3FfZFXr7DbL6xJwfo",
+      "model": "gpt-4o-mini"
+    }'
+```
+:::
+
+:::{tab-item} `Python`
+```python
+import json
+import requests
+
+url = "http://proxy.aiapps.autel.com/v1/v1/fine_tuning/jobs"
+api_key = "你的令牌"    # 替换为你的令牌
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {api_key}"
+}
+
+payload = {
+    "training_file": "file-BK7bzQj3FfZFXr7DbL6xJwfo",
+    "model": "gpt-4o-mini"
+}
+r = requests.post(url, json=payload, headers=headers)
+if not r.ok:
+    raise requests.HTTPError(f"Request Failed, {r.status_code}: {r.text}")
+print(r.json())
+```
+:::
+
+::::
+
+```{admonition} 返回值
+```json
+{
+  "object": "fine_tuning.job",
+  "id": "ftjob-abc123",
+  "model": "gpt-4o-mini-2024-07-18",
+  "created_at": 1721764800,
+  "fine_tuned_model": null,
+  "organization_id": "org-123",
+  "result_files": [],
+  "status": "queued",
+  "validation_file": null,
+  "training_file": "file-abc123",
+}
+```

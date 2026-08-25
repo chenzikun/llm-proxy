@@ -1,0 +1,101 @@
+# Embedding
+文本转向量
+```{admonition} POST &nbsp; /v1/embeddings  
+
+Header:  
+- Content-Type: application/json  
+- Authorization: Bearer <font class="stress">$API_KEY</font>  
+
+参数：
+- <font class="haha">model</font>: string, 模型名称；
+- <font class="haha">input</font>: []string, 输入文本，可以是字符串，也可以是字符串数组；
+- <font class="haha">encoding_format</font>: string, 编码格式；
+    > - 不同的模型支持不同的编码格式，但都支持float类型；
+- <font class="haha">input_type</font>: string, 输入类型，有效值如下；
+    > - search_document: 用于存储在矢量数据库中的嵌入，用于搜索场景；
+    > - search_query: 用于嵌入针对矢量数据库运行的搜索查询以查找相关文档；
+    > - classification: 用于通过文本分类器传递的嵌入；
+    > - clustering: 用于通过聚类算法运行的嵌入；
+    > - image: 用于图像输入的嵌入；  
+    > ---  
+    > `input_type`参数仅对cohere模型有效，其他模型不支持该参数；  
+    > cohere官方文档：[https://docs.cohere.com/reference/embed](https://docs.cohere.com/reference/embed)
+```
+
+
+::::{tab-set}
+
+:::{tab-item} `Curl`
+```shell
+curl -X POST \
+    http://proxy.aiapps.autel.com/v1/embeddings \
+   -H 'Content-Type: application/json' \
+   -H "Authorization: Bearer $API_KEY" \
+   -d '{
+        "model": "text-embedding-ada-002",
+        "input": ["早上好", "晚上好"],
+        "input_type": "search_document",
+        "encoding_format": "float"
+    }'
+```
+:::
+
+:::{tab-item} `Python`
+```python
+import json
+import requests
+
+url = "http://proxy.aiapps.autel.com/v1/embeddings"
+api_key = "你的令牌"    # 替换为你的令牌
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {api_key}"
+}
+
+payload = {
+    "model": model, 
+    "input": ["早上好", "晚上好"], 
+    "encoding_format": "float", 
+    "input_type": "search_document"
+}
+r = requests.post(url, json=payload, headers=headers)
+if not r.ok:
+    raise requests.HTTPError(f"Failed to request embeddings, {r.status_code}: {r.text}")
+print(r.json())
+```
+:::
+
+::::
+
+```{admonition} 返回值
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "embedding",
+      "index": 0,
+      "embedding": [
+        -0.013137813,
+        -0.0098724363,
+        -0.0065612793
+      ]
+    },
+    {
+      "object": "embedding",
+      "index": 1,
+      "embedding": [
+        -0.013137814,
+        -0.0098724364,
+        -0.0065612794
+      ]
+    }
+  ],
+  "model": "cohere.embed-multilingual-v3",
+  "usage": {
+    "prompt_tokens": 0,
+    "completion_tokens": 0,
+    "total_tokens": 0
+  }
+}
+```

@@ -1,0 +1,333 @@
+# Chat
+聊天接口可以用于**对话生成**、**工具使用**等任务。
+```{admonition} POST &nbsp; /v1/chat/completions
+
+Header:
+- Content-Type: application/json
+- Authorization: Bearer <font class="stress">$API_KEY</font>
+
+参数：
+- <font class="haha">model</font>: string, 模型名称；
+- <font class="haha">messages</font>: List[Message], 消息列表；
+    > Message对象:
+    > - role: string, 消息角色；
+    > - content: string, 消息内容；
+- <font class="haha">stream</font>: bool, 是否流式响应，默认为`false`；
+- <font class="haha">reasoning_effort</font>: string, 开启推理，默认为空字符串；
+    > 有效值：`low`, `medium`, `high`；
+    > - 对于o3-mini模型，这三个值效果不同；
+    > - 对于 deepseek-reasoner和 claude3.7，这三个值的效果相同；
+    > - 默认为空字符串，deepseek-reasoner和 claude3.7不开启推理，o3-mini会自动使用medium模式；
+- <font class="haha">tools</font>: list, 工具列表(目前仅支持函数)，可选参数；
+    > 比较复杂，请看下面的示例
+- <font class="haha">max_completion_tokens</font>: int, 最大生成长度，可选参数；
+- <font class="haha">temperature</font>: float, 温度，默认为1；
+    > 温度采样，介于 0 和 2 之间。较高的值（如 0.8）将使输出更加随机，而较低的值（如 0.2）将使结果更加确定。
+- <font class="haha">top_p</font>: float，默认为1；
+    > - 一种替代温度采样的方法，称为核采样。模型考虑具有 top_p 概率质量的标记的结果。0.1 意味着仅考虑包含前 10% 概率质量的标记；
+    > - 通常，top_p 会产生更高质量的结果，但temperature会产生更多的多样性；
+    > - 我们建议改变top_p和temperature 其中的一个，不建议两者都改；
+- <font class="haha">presence_penalty</font>: float, 惩罚项，默认为0；
+    > -2.0 和 2.0 之间的数字。正值根据新标记是否出现在文本中来对其进行惩罚，从而增加模型讨论新主题的可能性。负值会减少这种惩罚。
+- <font class="haha">frequency_penalty</font>: float, 频率惩罚，默认为0；
+    > -2.0 和 2.0 之间的数字。正值根据迄今为止文本中的现有频率对新标记进行惩罚，从而降低模型逐字重复同一行的可能性。
+```
+
+### 聊天补全示例
+::::{tab-set}
+
+:::{tab-item} `Curl`
+```shell
+curl http://proxy.aiapps.autel.com/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $API_KEY" \
+    -d '{
+        "model": "aws-claude3.5:haiku-20241022",
+        "messages": [
+        {
+            "role": "system",
+            "content": "You are a helpful assistant."
+        },
+        {
+            "role": "user",
+            "content": "Hello!"
+        }]
+    }'
+```
+:::
+
+:::{tab-item} `Python`
+```python
+import json
+import requests
+
+url = "http://proxy.aiapps.autel.com/v1/chat/completions"
+api_key = "你的令牌"    # 替换为你的令牌
+headers = {
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {api_key}"
+}
+
+payload = {
+    "model": "aws-claude3.5:haiku-20241022",  # 替换为你想用的模型名称
+    "messages": [{
+        "role": "user",
+        "content": "帮我写一个童话故事"
+    }],
+    "stream": True,
+}
+r = requests.post(url, json=payload, headers=headers)
+
+for line in r.iter_lines():
+    line = line.decode("utf-8")
+    if line.startswith("data: ") and not line.endswith("[DONE]"):
+        data = json.loads(line[len("data: "):])
+        chunk = data["choices"][0]["delta"].get("content", "")
+        print(chunk, end="", flush=True)
+```
+:::
+
+:::{tab-item} `OpenAI`
+```python
+from openai import OpenAI
+
+# 创建 OpenAI 客户端
+client = OpenAI(
+    api_key="你的令牌",  # 替换为你的令牌
+    base_url="http://proxy.aiapps.autel.com/v1"
+)
+
+# 创建聊天完成
+stream = client.chat.completions.create(
+    model="aws-claude3.5:haiku-20241022",  # 替换为你想用的模型名称
+    messages=[
+        {"role": "user", "content": "帮我写一个童话故事"}
+    ],
+    stream=True
+)
+
+# 处理流式响应
+for chunk in stream:
+    if chunk.choices[0].delta.content is not None:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+```
+:::
+
+:::{tab-item} `LangChain`
+```python
+from langchain_openai.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage
+from langchain.callbacks.base import BaseCallbackHandler
+
+class StreamHandler(BaseCallbackHandler):
+    def __init__(self):
+        self.tokens = []
+
+    def on_llm_new_token(self, token: str, kwargs) -> None:
+        self.tokens.append(token)
+        print(token, end="", flush=True)
+
+# 创建 ChatOpenAI 实例
+stream_handler = StreamHandler()
+chat = ChatOpenAI(
+    model_name="aws-claude3.5:haiku-20241022",  # 替换为你想用的模型名称
+    openai_api_key="你的令牌",  # 替换为你的令牌
+    openai_api_base="http://proxy.aiapps.autel.com/v1",
+    streaming=True,
+    callbacks=[stream_handler]
+)
+
+# 创建消息
+messages = [
+    HumanMessage(content="帮我写一个童话故事")
+]
+
+# 生成响应
+response = chat(messages)
+```
+:::
+
+:::{tab-item} `NodeJS`
+```js
+const axios = require('axios');
+const EventSource = require('eventsource');
+
+// llm-proxy 服务地址
+const baseUrl = "http://proxy.aiapps.autel.com/v1";
+const apiKey = "你的令牌";  // 替换为你的令牌
+const headers = {
+    "Content-Type": "application/json",
+    "Authorization": `Bearer ${apiKey}`
+};
+
+// 请求数据
+const payload = {
+    model: "aws-claude3.5:haiku-20241022",  // 填写你想用的模型名称
+    messages: [{
+        role: "user",
+        content: "帮我写一个童话故事"
+    }],
+    stream: true,
+};
+
+// 发送 POST 请求
+axios.post(`${baseUrl}/chat/completions`, payload, {
+    headers,
+    responseType: 'stream'
+})
+.then(response => {
+    response.data.on('data', (chunk) => {
+        const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
+        for (const line of lines) {
+            if (line.startsWith("data: ") && !line.includes("[DONE]")) {
+                const data = JSON.parse(line.substring("data: ".length));
+                const content = data.choices[0].delta?.content || "";
+                process.stdout.write(content);
+            }
+        }
+    });
+
+    response.data.on('end', () => {
+        console.log('\n流式响应结束');
+    });
+})
+.catch(error => {
+    console.error('Error:', error.message);
+});
+```
+:::
+
+::::
+
+### 推理示例
+```{admonition} 推理示例
+```shell
+curl http://proxy.aiapps.autel.com/v1/chat/completions \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer $API_KEY" \
+-d '{
+  "model": "aws-claude3.7:sonnet-20250219",
+  "messages": [
+    {
+      "role": "user",
+      "content": "3.9和3.11哪个大"
+    }
+  ],
+  "reasoning_effort": "high",
+  "stream": false
+}'
+```
+
+
+```{admonition} 推理返回值
+```json
+{
+    "id": "chatcmpl-msg_bdrk_01QzQqHBFzTaJNqDep1qL8nC",
+    "model": "aws-claude3.7:sonnet-20250219",
+    "object": "chat.completion",
+    "created": 1740570920,
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "role": "assistant",
+                "content": "3.9比3.11大。\n\n在比较小数时，我们可以看到两个数的整数部分都是3，所以需要比较小数部分。3.9的小数部分是0.9，而3.11的小数部分是0.11。因为0.9等于0.90，明显大于0.11，所以3.9大于3.11。",
+                "reasoning_content": "这个问题是比较两个小数的大小：3.11和3.9。\n\n为了比较两个小数的大小，我们可以先比较它们的整数部分，如果整数部分相同，再比较小数部分。\n\n3.11和3.9的整数部分都是3，所以我们需要比较小数部分。\n\n3.11的小数部分是0.11\n3.9的小数部分是0.9\n\n0.9 = 0.90，所以我们是在比较0.11和0.90\n\n显然，0.90比0.11大。\n\n因此，3.9比3.11大。"
+            },
+            "finish_reason": "stop"
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 47,
+        "completion_tokens": 291,
+        "total_tokens": 338
+    }
+}
+```
+```
+```
+
+### 工具使用示例
+```{admonition} 工具使用示例
+```shell
+curl http://proxy.aiapps.autel.com/v1/chat/completions \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer $API_KEY" \
+-d '{
+  "model": "gpt-4o",
+  "messages": [
+    {
+      "role": "user",
+      "content": "What'\''s the weather like in Boston today?"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "get_current_weather",
+        "description": "Get the current weather in a given location",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "location": {
+              "type": "string",
+              "description": "The city and state, e.g. San Francisco, CA"
+            },
+            "unit": {
+              "type": "string",
+              "enum": ["celsius", "fahrenheit"]
+            }
+          },
+          "required": ["location"]
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto"
+}'
+
+```
+
+
+```{admonition} 工具使用返回值
+```json
+{
+  "id": "chatcmpl-abc123",
+  "object": "chat.completion",
+  "created": 1699896916,
+  "model": "gpt-4o-mini",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "id": "call_abc123",
+            "type": "function",
+            "function": {
+              "name": "get_current_weather",
+              "arguments": "{\n\"location\": \"Boston, MA\"\n}"
+            }
+          }
+        ]
+      },
+      "logprobs": null,
+      "finish_reason": "tool_calls"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 82,
+    "completion_tokens": 17,
+    "total_tokens": 99,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0,
+      "accepted_prediction_tokens": 0,
+      "rejected_prediction_tokens": 0
+    }
+  }
+}
+```
+```
