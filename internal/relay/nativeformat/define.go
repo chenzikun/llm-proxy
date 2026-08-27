@@ -4,13 +4,13 @@ package nativeformat
 const (
 	FormatOpenAI    = "openai"
 	FormatAnthropic = "anthropic"
-	FormatGoogle    = "google"
+	FormatGoogle    = "gemini"
 	FormatVertexAI  = "vertexai"
 )
 
 // URLPrefixToFormat 路径前缀 → 格式名
 var URLPrefixToFormat = map[string]string{
 	"/anthropic": FormatAnthropic,
-	"/google":    FormatGoogle,
+	"/gemini":    FormatGoogle,
 	"/vertexai":  FormatVertexAI,
 }

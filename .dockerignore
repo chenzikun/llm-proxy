@@ -1,0 +1,11 @@
+.git
+data
+logs
+upload
+node_modules
+web/node_modules
+*.db
+*.db-journal
+.env
+.idea
+.vscode

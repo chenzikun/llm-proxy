@@ -4,7 +4,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/context"
 	"github.com/gorilla/sessions"
-	"github.com/rbcervilla/redisstore/v9"
 	"log"
 	"net/http"
 )
@@ -14,7 +13,7 @@ var DefaultKey = "github.com/gin/sessions"
 type SessionData struct {
 	name    string
 	request *http.Request
-	store   *redisstore.RedisStore
+	store   sessions.Store
 	session *sessions.Session
 	written bool
 	writer  http.ResponseWriter
@@ -89,7 +88,7 @@ func GetSession(c *gin.Context) *SessionData {
 	return c.MustGet(DefaultKey).(*SessionData)
 }
 
-func SessionMiddleware(name string, store *redisstore.RedisStore) gin.HandlerFunc {
+func SessionMiddleware(name string, store sessions.Store) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		s := &SessionData{name, c.Request, store, nil, false, c.Writer}
 		c.Set(DefaultKey, s)

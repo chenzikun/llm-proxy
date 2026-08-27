@@ -9,10 +9,11 @@ import (
 
 	"github.com/chenjiandongx/ginprom"
 	"github.com/gin-gonic/gin"
+	gorillasessions "github.com/gorilla/sessions"
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/rbcervilla/redisstore/v9"
 	"github.com/redis/go-redis/v9"
-	llmweb "github.com/zicorn/llm-proxy/web"
+	"github.com/zicorn/llm-proxy/internal/webstatic"
 	"github.com/zicorn/llm-proxy/pkg/common"
 	"github.com/zicorn/llm-proxy/pkg/common/client"
 	"github.com/zicorn/llm-proxy/pkg/common/config"
@@ -111,28 +112,34 @@ func main() {
 	//	logger.SysLog(fmt.Sprintf("redisServer=%s, redisPassword=%s", config.RedisServer, config.RedisPassword))
 	//	logger.FatalLog("failed to initialize Redis session store: " + err.Error())
 	//}
-	ctx := context.Background()
-	var store *redisstore.RedisStore
-	if config.RedisMode == "cluster" {
-		store, err = redisstore.NewRedisStore(ctx, redis.NewClusterClient(&redis.ClusterOptions{
-			Addrs:    []string{config.RedisServer},
-			Password: config.RedisPassword,
-		}))
-	} else if config.RedisMode == "single" {
-		store, err = redisstore.NewRedisStore(ctx, redis.NewClient(&redis.Options{
-			Addr:     config.RedisServer,
-			Password: config.RedisPassword,
-		}))
+	var sessionStore gorillasessions.Store
+	if config.RedisServer == "" {
+		logger.SysLog("REDIS_SERVER not set, using cookie-based session store (single-node mode)")
+		sessionStore = gorillasessions.NewCookieStore([]byte(config.SessionSecret))
 	} else {
-		logger.FatalLog("invalid Redis mode: " + config.RedisMode)
+		ctx := context.Background()
+		var redisStore *redisstore.RedisStore
+		if config.RedisMode == "cluster" {
+			redisStore, err = redisstore.NewRedisStore(ctx, redis.NewClusterClient(&redis.ClusterOptions{
+				Addrs:    []string{config.RedisServer},
+				Password: config.RedisPassword,
+			}))
+		} else if config.RedisMode == "single" {
+			redisStore, err = redisstore.NewRedisStore(ctx, redis.NewClient(&redis.Options{
+				Addr:     config.RedisServer,
+				Password: config.RedisPassword,
+			}))
+		} else {
+			logger.FatalLog("invalid Redis mode: " + config.RedisMode)
+		}
+		if err != nil {
+			log.Fatal("failed to create redis store: ", err)
+		}
+		sessionStore = redisStore
 	}
-	if err != nil {
-		log.Fatal("failed to create redis store: ", err)
-	}
-	//server.Use(sessions.Sessions("session", store))
-	server.Use(common.SessionMiddleware("session", store))
+	server.Use(common.SessionMiddleware("session", sessionStore))
 
-	router.SetRouter(server, llmweb.BuildFS)
+	router.SetRouter(server, webstatic.BuildFS)
 	var port = os.Getenv("PORT")
 	if port == "" {
 		port = strconv.Itoa(*common.Port)

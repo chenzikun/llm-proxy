@@ -98,6 +98,10 @@ func TokenAuth() func(c *gin.Context) {
 		if key == "" {
 			key = c.Request.Header.Get("x-api-key")
 		}
+		// 支持 Google SDK 发送的 x-goog-api-key 头
+		if key == "" {
+			key = c.Request.Header.Get("x-goog-api-key")
+		}
 		key = strings.TrimPrefix(key, "sk-")
 		parts := strings.Split(key, "-")
 		key = parts[0]
@@ -171,7 +175,7 @@ func shouldCheckModel(c *gin.Context) bool {
 	}
 	// 原生格式路径，所有请求都需要 model
 	if strings.HasPrefix(path, "/anthropic") ||
-		strings.HasPrefix(path, "/google") ||
+		strings.HasPrefix(path, "/gemini") ||
 		strings.HasPrefix(path, "/vertexai") {
 		return true
 	}

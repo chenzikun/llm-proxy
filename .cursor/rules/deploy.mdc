@@ -1,0 +1,38 @@
+---
+description: llm-proxy 部署方法与服务器信息
+alwaysApply: true
+---
+
+# 部署方法
+
+## 一键构建 + 部署
+
+```bash
+bash scripts/build-and-deploy.sh
+```
+
+- 本地构建前端（`web/` → `internal/webstatic/build/`）
+- rsync 同步到远程服务器
+- 服务器端 Docker 重建 Go 镜像并重启容器
+
+## 跳过前端构建（仅后端变动时更快）
+
+```bash
+SKIP_FRONTEND=1 bash scripts/build-and-deploy.sh
+```
+
+## 服务器信息
+
+- SSH Host: `ubuntu`（`~/.ssh/config` 中已配置）
+- 远程目录: `~/llm-proxy`
+- 服务地址: `http://10.229.20.93:3000`
+- Docker Compose: `docker/docker-compose.prod.yml`，project name `llm-proxy`
+
+## Docker 目录结构
+
+```
+docker/
+├── Dockerfile             # 仅编译 Go 二进制，前端需本地预先构建
+├── docker-compose.prod.yml # 生产环境：llm-proxy + llm-redis
+└── nginx.conf
+```

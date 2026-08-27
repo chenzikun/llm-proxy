@@ -1,0 +1,51 @@
+---
+description: llm-proxy 关键架构决策与设计约定
+alwaysApply: true
+---
+
+# 项目架构约定
+
+## 目录结构
+
+```
+cmd/server/          # Go 入口
+internal/
+  handler/           # HTTP handlers
+  objects/           # 核心业务逻辑（billing.go）
+  relay/             # 模型转发逻辑
+  repo/              # 数据库操作
+  router/            # 路由
+  webstatic/
+    embed.go         # go:embed 入口（package webstatic）
+    build/           # 前端构建产物（gitignore，由 npm run build 生成）
+    doc/             # API 文档
+web/                 # 纯前端源码（src/ public/ package.json，无 Go 文件）
+docker/              # Dockerfile + docker-compose.prod.yml
+scripts/             # build-and-deploy.sh, add-sagemaker-models.sh
+```
+
+## 计费设计
+
+- **基准货币：¥（人民币）**，不可配置，代码中硬编码 ¥ 符号
+- **定价单位：每百万 token（1M）**，`tokenQuotaRatio` 除数为 `1,000,000`
+- **额度单位**：`QuotaPerUnit = 1,000,000`（100万额度 = ¥1）
+- **汇率**：`ExchangeRate`（默认 7.2），用于将 USD 计价模型换算成 ¥
+- **模型价格字段**：`input_price / output_price / cache_price`（每百万 token）+ `price_unit`（CNY/USD）
+- **缓存 token**：`cache_price = 0` 时按 `input_price` 计费；`cache_price > 0` 才启用折扣
+
+## 模型管理
+
+- 所有模型通过管理界面或 `scripts/add-sagemaker-models.sh` 动态添加
+- 代码中无任何硬编码默认模型（`ModelMetaMap` 为空）
+- SageMaker Endpoint 的 `ModelList` 也为空，动态添加
+
+## 前端
+
+- 唯一主题：Berry（MUI），无主题切换
+- `web/` 是纯前端目录，embed.go 在 `internal/webstatic/`
+- `npm run build` 输出到 `internal/webstatic/build/`
+
+## 服务器地址
+
+- `ServerAddress` 默认为空；前端用 `siteInfo.server_address || window.location.origin`
+- 可在「系统设置 → 服务器地址」中配置自定义域名

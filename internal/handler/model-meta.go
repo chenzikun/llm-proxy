@@ -13,27 +13,25 @@ import (
 )
 
 type AddModelMetaRequest struct {
-	Model           string   `json:"model" binding:"required"`
-	ChannelType     int      `json:"channel_type" binding:"required"`
-	Status          int      `json:"status"`
-	ModelRatio      *float64 `json:"model_ratio" binding:"required"`
-	CompletionRatio *float64 `json:"completion_ratio" binding:"required"`
+	Model       string  `json:"model" binding:"required"`
+	ChannelType int     `json:"channel_type" binding:"required"`
+	Status      int     `json:"status"`
+	InputPrice  float64 `json:"input_price"`
+	OutputPrice float64 `json:"output_price"`
+	CachePrice  float64 `json:"cache_price"`
+	PriceUnit   string  `json:"price_unit"`
 }
 
 // UpdateModelMetaRequest 更新 ModelMeta 的请求结构体
 type UpdateModelMetaRequest struct {
-	Id              int      `json:"id" binding:"required"`
-	Status          int      `json:"status"`
-	Model           *string  `json:"model"`
-	ChannelType     *int     `json:"channel_type"`
-	ModelRatio      *float64 `json:"model_ratio"`
-	CompletionRatio *float64 `json:"completion_ratio"`
-}
-
-type UpdateModelRatioRequest struct {
-	Model           string   `json:"model" binding:"required"`
-	ModelRatio      *float64 `json:"model_ratio" binding:"required"`
-	CompletionRatio *float64 `json:"completion_ratio" binding:"required"`
+	Id          int      `json:"id" binding:"required"`
+	Status      int      `json:"status"`
+	Model       *string  `json:"model"`
+	ChannelType *int     `json:"channel_type"`
+	InputPrice  *float64 `json:"input_price"`
+	OutputPrice *float64 `json:"output_price"`
+	CachePrice  *float64 `json:"cache_price"`
+	PriceUnit   *string  `json:"price_unit"`
 }
 
 // GetAllModelMetas 获取模型元数据列表（支持分页）
@@ -79,13 +77,19 @@ func AddModelMeta(c *gin.Context) {
 	//	req.Status = model.ModelStatusOn
 	//}
 
+	priceUnit := req.PriceUnit
+	if priceUnit == "" {
+		priceUnit = "CNY"
+	}
 	// 构造 ModelMeta 对象
 	meta := &model.ModelMeta{
-		Model:           req.Model,
-		ChannelType:     req.ChannelType,
-		Status:          req.Status,
-		ModelRatio:      *req.ModelRatio,
-		CompletionRatio: *req.CompletionRatio,
+		Model:       req.Model,
+		ChannelType: req.ChannelType,
+		Status:      req.Status,
+		InputPrice:  req.InputPrice,
+		OutputPrice: req.OutputPrice,
+		CachePrice:  req.CachePrice,
+		PriceUnit:   priceUnit,
 	}
 
 	// 调用 AddModelMeta 函数
@@ -162,11 +166,17 @@ func UpdateModelMeta(c *gin.Context) {
 	if req.Model != nil {
 		updates["model"] = *req.Model
 	}
-	if req.ModelRatio != nil {
-		updates["model_ratio"] = *req.ModelRatio
+	if req.InputPrice != nil {
+		updates["input_price"] = *req.InputPrice
 	}
-	if req.CompletionRatio != nil {
-		updates["completion_ratio"] = *req.CompletionRatio // 确保 0 值被包含
+	if req.OutputPrice != nil {
+		updates["output_price"] = *req.OutputPrice
+	}
+	if req.CachePrice != nil {
+		updates["cache_price"] = *req.CachePrice
+	}
+	if req.PriceUnit != nil {
+		updates["price_unit"] = *req.PriceUnit
 	}
 
 	//logger.Infof(c, "model meta : %#v", model_meta)
@@ -188,42 +198,6 @@ func UpdateModelMeta(c *gin.Context) {
 	})
 }
 
-// UpdateModelRatio 更新模型费率
-// @Summary 更新模型费率
-// @Param request body UpdateModelRatioRequest true "请求参数"
-// @Success 200 {object} gin.H
-// @Router /api/v1/model_metas/update_ratio [put]
-func UpdateModelRatio(c *gin.Context) {
-	var req UpdateModelRatioRequest
-
-	err := c.ShouldBindJSON(&req)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-
-    // 构建动态更新字段
-	updates := make(map[string]interface{})
-	updates["model_ratio"] = *req.ModelRatio
-	updates["completion_ratio"] = *req.CompletionRatio
-
-	err = model.ModelMetaUpdateByModel(req.Model, updates)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "",
-	})
-}
 
 
 

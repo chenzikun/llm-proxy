@@ -2,7 +2,6 @@ package router
 
 import (
 	"embed"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -13,7 +12,6 @@ import (
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/zicorn/llm-proxy/pkg/common"
-	"github.com/zicorn/llm-proxy/pkg/common/config"
 	"github.com/zicorn/llm-proxy/internal/handler"
 	"github.com/zicorn/llm-proxy/internal/middleware"
 )
@@ -23,7 +21,7 @@ func SetWebRouter(router *gin.Engine, buildFS embed.FS) {
 	if err != nil {
 		log.Fatal("doc files not found")
 	}
-	indexPageData, err := buildFS.ReadFile(fmt.Sprintf("build/%s/index.html", config.Theme))
+	indexPageData, err := buildFS.ReadFile("build/index.html")
 	if err != nil {
 		log.Fatal("web build files not found")
 	}
@@ -34,7 +32,7 @@ func SetWebRouter(router *gin.Engine, buildFS embed.FS) {
 	// Serve static files
 	docFS := common.EmbedFolder(buildFS, "doc")
 	docServer := static.Serve("/doc", docFS)
-	staticServer := static.Serve("/", common.EmbedFolder(buildFS, fmt.Sprintf("build/%s", config.Theme)))
+	staticServer := static.Serve("/", common.EmbedFolder(buildFS, "build"))
 	router.Use(func(c *gin.Context) {
 		if strings.HasPrefix(c.Request.RequestURI, "/v1") || strings.HasPrefix(c.Request.RequestURI, "/api") {
 			logger.Infof(c.Request.Context(), "api request: %s", c.Request.RequestURI)

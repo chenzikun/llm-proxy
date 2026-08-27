@@ -14,12 +14,13 @@ import (
 )
 
 var SystemName = "One API"
-var ServerAddress = env.String("SERVER_ADDRESS", "http://10.240.1.171:3000")
+var ServerAddress = env.String("SERVER_ADDRESS", "")
 var Footer = ""
 var Logo = ""
 var TopUpLink = ""
 var ChatLink = ""
-var QuotaPerUnit = 500 * 1000.0 // $0.002 / 1K tokens
+var QuotaPerUnit = 1000 * 1000.0 // 1,000,000 额度单位 = ¥1（1元人民币）
+var ExchangeRate = 7.2             // 汇率：1 USD = ? CNY，用于将 USD 计价的模型价格换算成 CNY
 var DisplayInCurrencyEnabled = true
 var DisplayTokenStatEnabled = true
 
@@ -121,12 +122,7 @@ var BatchUpdateInterval = env.Int("BATCH_UPDATE_INTERVAL", 5)
 
 var GeminiSafetySetting = env.String("GEMINI_SAFETY_SETTING", "BLOCK_NONE")
 
-var Theme = env.String("THEME", "default")
-var ValidThemes = map[string]bool{
-	"default": true,
-	"berry":   true,
-	"air":     true,
-}
+const Theme = "berry"
 
 // All duration's unit is seconds
 // Shouldn't larger then RateLimitKeyExpirationDuration

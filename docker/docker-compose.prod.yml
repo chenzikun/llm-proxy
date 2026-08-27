@@ -1,0 +1,36 @@
+version: '3.4'
+
+services:
+  llm-proxy:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: llm-proxy:latest
+    container_name: llm-proxy
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../data:/data
+    environment:
+      - SESSION_SECRET=${SESSION_SECRET:-please_change_to_random_string}
+      - TZ=${TZ:-Asia/Shanghai}
+      # Redis（可选，仅多节点部署时需要；REDIS_SERVER 留空则自动使用 cookie session）
+      - REDIS_CONN_STRING=${REDIS_CONN_STRING:-}
+      - REDIS_MODE=${REDIS_MODE:-single}
+      - REDIS_SERVER=${REDIS_SERVER:-}
+      # PostgreSQL（可选，PG_HOST 留空则使用 SQLite）
+      - SQL_DSN=${PG_HOST:+postgres://${PG_USER:-llm_proxy}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT:-5432}/${PG_DB:-llm_proxy}?sslmode=disable}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/status | grep -o '\"success\":true' || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # llm-redis:
+  #   image: redis:alpine
+  #   container_name: llm-redis
+  #   restart: always
+  #   volumes:
+  #     - ../data/redis:/data
+  #   command: redis-server --save 60 1 --loglevel warning

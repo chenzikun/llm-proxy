@@ -12,14 +12,17 @@ const (
 )
 
 type ModelMeta struct {
-	Id              int     `json:"id" gorm:"primaryKey;autoIncrement"`
-	Model           string  `json:"model" gorm:"type:varchar(255);model" csv:"model"`
-	ChannelType     int     `json:"channel_type" gorm:"index:idx_channel_type;type:int;channel_type" csv:"channel_type"`
-	Status          int     `json:"status" gorm:"default:1"`
-	ModelRatio      float64 `json:"model_ratio" gorm:"column:model_ratio;default:(-)" csv:"model_ratio"`
-	CompletionRatio float64 `json:"completion_ratio" gorm:"column:completion_ratio;default:(-)" csv:"completion_ratio"`
-	CreatedTime     int64   `json:"created_time" gorm:"bigint"`
-	UpdateTime      int64   `json:"update_time" gorm:"bigint"`
+	Id          int     `json:"id" gorm:"primaryKey;autoIncrement"`
+	Model       string  `json:"model" gorm:"type:varchar(255);model" csv:"model"`
+	ChannelType int     `json:"channel_type" gorm:"index:idx_channel_type;type:int;channel_type" csv:"channel_type"`
+	Status      int     `json:"status" gorm:"default:1"`
+	// 直接定价字段（每百万 token 的价格，货币由 PriceUnit 决定）
+	InputPrice  float64 `json:"input_price" gorm:"column:input_price;default:0" csv:"input_price"`
+	OutputPrice float64 `json:"output_price" gorm:"column:output_price;default:0" csv:"output_price"`
+	CachePrice  float64 `json:"cache_price" gorm:"column:cache_price;default:0" csv:"cache_price"`
+	PriceUnit   string  `json:"price_unit" gorm:"column:price_unit;default:'CNY'" csv:"price_unit"` // "CNY" 或 "USD"
+	CreatedTime int64   `json:"created_time" gorm:"bigint"`
+	UpdateTime  int64   `json:"update_time" gorm:"bigint"`
 }
 
 func GetModelMetaByModel(model string) (*ModelMeta, error) {
@@ -117,9 +120,11 @@ func CreateOrUpdateModelMeta(modelMeta *ModelMeta) error {
 	}
 	if exist {
 		return ModelMetaUpdateByModel(modelMeta.Model, map[string]interface{}{
-			"model_ratio":      modelMeta.ModelRatio,
-			"completion_ratio": modelMeta.CompletionRatio,
-			"channel_type":     modelMeta.ChannelType,
+			"input_price":  modelMeta.InputPrice,
+			"output_price": modelMeta.OutputPrice,
+			"cache_price":  modelMeta.CachePrice,
+			"price_unit":   modelMeta.PriceUnit,
+			"channel_type": modelMeta.ChannelType,
 		})
 	}
 	return AddModelMeta(modelMeta)

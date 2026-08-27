@@ -115,7 +115,6 @@ func SetApiRouter(router *gin.Engine) {
 			modelMetaRoute.POST("/upload", controller.UploadModelMeta)
 			modelMetaRoute.POST("/batch_add", controller.BatchAddModelMeta)
 			modelMetaRoute.DELETE("/:id", controller.DeleteModelMeta)
-			modelMetaRoute.POST("/update_ratio", controller.UpdateModelRatio)
 		}
 		logRoute := apiRouter.Group("/log")
 		logRoute.GET("/", middleware.AdminAuth(), controller.GetAllLogs)

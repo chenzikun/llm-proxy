@@ -67,15 +67,12 @@ func InitOptionMap() {
 	config.OptionMap["QuotaForInvitee"] = strconv.FormatInt(config.QuotaForInvitee, 10)
 	config.OptionMap["QuotaRemindThreshold"] = strconv.FormatInt(config.QuotaRemindThreshold, 10)
 	config.OptionMap["PreConsumedQuota"] = strconv.FormatInt(config.PreConsumedQuota, 10)
-	// todo:zikun 动态修改参数； 这里存在问题，部署两个节点，只修改了一个节点的内存
-	config.OptionMap["ModelRatio"] = billingratio.ModelRatio2JSONString()
 	config.OptionMap["GroupRatio"] = billingratio.GroupRatio2JSONString()
-	config.OptionMap["CompletionRatio"] = billingratio.CompletionRatio2JSONString()
+	config.OptionMap["ExchangeRate"] = strconv.FormatFloat(config.ExchangeRate, 'f', -1, 64)
 	config.OptionMap["TopUpLink"] = config.TopUpLink
 	config.OptionMap["ChatLink"] = config.ChatLink
 	config.OptionMap["QuotaPerUnit"] = strconv.FormatFloat(config.QuotaPerUnit, 'f', -1, 64)
 	config.OptionMap["RetryTimes"] = strconv.Itoa(config.RetryTimes)
-	config.OptionMap["Theme"] = config.Theme
 	config.OptionMapRWMutex.Unlock()
 	loadOptionsFromDatabase()
 }
@@ -83,9 +80,6 @@ func InitOptionMap() {
 func loadOptionsFromDatabase() {
 	options, _ := AllOption()
 	for _, option := range options {
-		if option.Key == "ModelRatio" {
-			option.Value = billingratio.AddNewMissingRatio(option.Value)
-		}
 		err := updateOptionMap(option.Key, option.Value)
 		if err != nil {
 			logger.SysError("failed to update option map: " + err.Error())
@@ -224,12 +218,10 @@ func updateOptionMap(key string, value string) (err error) {
 		config.PreConsumedQuota, _ = strconv.ParseInt(value, 10, 64)
 	case "RetryTimes":
 		config.RetryTimes, _ = strconv.Atoi(value)
-	case "ModelRatio":
-		err = billingratio.UpdateModelRatioByJSONString(value)
 	case "GroupRatio":
 		err = billingratio.UpdateGroupRatioByJSONString(value)
-	case "CompletionRatio":
-		err = billingratio.UpdateCompletionRatioByJSONString(value)
+	case "ExchangeRate":
+		config.ExchangeRate, _ = strconv.ParseFloat(value, 64)
 	case "TopUpLink":
 		config.TopUpLink = value
 	case "ChatLink":
@@ -238,8 +230,6 @@ func updateOptionMap(key string, value string) (err error) {
 		config.ChannelDisableThreshold, _ = strconv.ParseFloat(value, 64)
 	case "QuotaPerUnit":
 		config.QuotaPerUnit, _ = strconv.ParseFloat(value, 64)
-	case "Theme":
-		config.Theme = value
 	}
 	return err
 }

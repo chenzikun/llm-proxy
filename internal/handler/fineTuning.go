@@ -71,7 +71,7 @@ func FineTuningRelay(c *gin.Context) {
 	}
 	// 计费
 	logContent := fmt.Sprintf("模型微调: Model=%s, Token数量=%d", ftResp.Model, ftResp.TrainedTokens)
-	if err = objects.PostCost(ctx, meta, preConsumedQuota, int64(ftResp.TrainedTokens), 0, 0, logContent); err != nil {
+	if err = objects.PostCost(ctx, meta, preConsumedQuota, int64(ftResp.TrainedTokens), 0, 0, 0, 0, logContent); err != nil {
 		c.JSON(500, gin.H{
 			"error": "post_cost_failed",
 		})

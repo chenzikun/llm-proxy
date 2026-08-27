@@ -41,11 +41,11 @@ func extractModelFromBody(c *gin.Context) (string, error) {
 }
 
 // extractModelFromGooglePath 从 Google Gemini URL 路径提取 model。
-// 路径格式：/google/v1beta/models/{model}:generateContent
-//           /google/v1/models/{model}:generateContent
+// 路径格式：/gemini/v1beta/models/{model}:generateContent
+//           /gemini/v1/models/{model}:generateContent
 func extractModelFromGooglePath(path string) (string, error) {
-	// 去掉 /google 前缀
-	path = strings.TrimPrefix(path, "/google")
+	// 去掉 /gemini 前缀
+	path = strings.TrimPrefix(path, "/gemini")
 	return extractModelFromModelsPath(path)
 }
 

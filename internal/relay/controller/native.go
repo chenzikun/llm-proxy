@@ -11,6 +11,7 @@ import (
 	"github.com/zicorn/llm-proxy/pkg/common/ctxkey"
 	"github.com/zicorn/llm-proxy/pkg/common/logger"
 	"github.com/zicorn/llm-proxy/internal/objects"
+	"github.com/zicorn/llm-proxy/internal/relay/channeltype"
 	"github.com/zicorn/llm-proxy/internal/relay/nativeformat"
 )
 
@@ -23,6 +24,13 @@ func RelayNativeHelper(c *gin.Context, format string) *objects.ErrorWithStatusCo
 
 	// 从 context 中取渠道信息（已由 Distribute 中间件设置）
 	baseURL := c.GetString(ctxkey.BaseURL)
+	// 渠道未配置 BaseURL 时，回退到渠道类型的默认地址
+	if baseURL == "" {
+		channelType := c.GetInt(ctxkey.ChannelType)
+		if channelType > 0 && channelType < len(channeltype.ChannelBaseURLs) {
+			baseURL = channeltype.ChannelBaseURLs[channelType]
+		}
+	}
 	apiKey := strings.TrimPrefix(c.Request.Header.Get("Authorization"), "Bearer ")
 
 	// 构建上游 URL：去掉格式前缀，拼接渠道 BaseURL

@@ -13,3 +13,5 @@ cmd.md
 __pycache__
 outputs
 .claude
+
+docker/.env

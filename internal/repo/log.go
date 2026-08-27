@@ -23,6 +23,8 @@ type Log struct {
 	Quota            int    `json:"quota" gorm:"default:0"`
 	PromptTokens     int    `json:"prompt_tokens" gorm:"default:0"`
 	CompletionTokens int    `json:"completion_tokens" gorm:"default:0"`
+	CacheTokens      int    `json:"cache_tokens" gorm:"default:0"`
+	CacheQuota       int    `json:"cache_quota" gorm:"default:0"`
 	ChannelId        int    `json:"channel" gorm:"index"`
 	SessionId        string `json:"session_id" gorm:"index;default:''"`
 }
@@ -67,8 +69,8 @@ func RecordTopupLog(userId int, content string, quota int) {
 	}
 }
 
-func RecordConsumeLog(ctx context.Context, userId int, channelId int, promptTokens int, completionTokens int, modelName string, tokenName string, quota int64, content string, sessionId string) {
-	logger.Info(ctx, fmt.Sprintf("record consume log: userId=%d, channelId=%d, promptTokens=%d, completionTokens=%d, modelName=%s, tokenName=%s, quota=%d, content=%s, sessionId=%s", userId, channelId, promptTokens, completionTokens, modelName, tokenName, quota, content, sessionId))
+func RecordConsumeLog(ctx context.Context, userId int, channelId int, promptTokens int, completionTokens int, cacheTokens int, modelName string, tokenName string, quota int64, cacheQuota int, content string, sessionId string) {
+	logger.Info(ctx, fmt.Sprintf("record consume log: userId=%d, channelId=%d, promptTokens=%d, completionTokens=%d, cacheTokens=%d, modelName=%s, tokenName=%s, quota=%d, cacheQuota=%d, sessionId=%s", userId, channelId, promptTokens, completionTokens, cacheTokens, modelName, tokenName, quota, cacheQuota, sessionId))
 	if !config.LogConsumeEnabled {
 		return
 	}
@@ -80,6 +82,8 @@ func RecordConsumeLog(ctx context.Context, userId int, channelId int, promptToke
 		Content:          content,
 		PromptTokens:     promptTokens,
 		CompletionTokens: completionTokens,
+		CacheTokens:      cacheTokens,
+		CacheQuota:       cacheQuota,
 		TokenName:        tokenName,
 		ModelName:        modelName,
 		Quota:            int(quota),

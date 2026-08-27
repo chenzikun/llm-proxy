@@ -1,9 +1,6 @@
 package sagemakerEndpoint
 
-var ModelList = []string{
-	"app-csms-202502100453-endpoint",
-	"app-csms-202502280849-endpoint",
-	"app-csms-202503060546-endpoint",
-	"app-csms-202503100347-endpoint",
-	"app-csms-202503140159-endpoint",
-}
+// ModelList SageMaker endpoint 列表，不在此处硬编码。
+// 请通过数据库（model_meta 表）或管理界面动态添加，
+// 参考 scripts/add-sagemaker-models.sh 批量导入。
+var ModelList = []string{}

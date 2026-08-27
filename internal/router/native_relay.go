@@ -10,13 +10,13 @@ import (
 //
 // 支持的路径前缀及对应协议：
 //   - /anthropic/*  — Anthropic Messages API（claude-* 系列）
-//   - /google/*     — Google Gemini API（gemini-* 系列）
+//   - /gemini/*     — Google Gemini API（gemini-* 系列）
 //   - /vertexai/*   — Vertex AI API（GCP 上的 Claude / Gemini 等）
 //
 // 客户端只需将 SDK 的 base_url 改为：
 //
 //	https://<proxy>/anthropic
-//	https://<proxy>/google
+//	https://<proxy>/gemini
 //	https://<proxy>/vertexai
 //
 // 其余（model、请求体、response）与原生 SDK 完全一致。
@@ -37,10 +37,10 @@ func SetNativeRelayRouter(router *gin.Engine) {
 
 	// Google Gemini API
 	// 文档：https://ai.google.dev/api/generate-content
-	googleRouter := router.Group("/google")
-	googleRouter.Use(middlewares...)
+	geminiRouter := router.Group("/gemini")
+	geminiRouter.Use(middlewares...)
 	{
-		googleRouter.Any("/*path", controller.RelayNative)
+		geminiRouter.Any("/*path", controller.RelayNative)
 	}
 
 	// Vertex AI API
