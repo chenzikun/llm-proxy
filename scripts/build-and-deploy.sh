@@ -28,6 +28,11 @@ if [ "${SKIP_FRONTEND}" != "1" ]; then
   cd "$ROOT_DIR"
 else
   echo "⏭️  跳过前端构建（SKIP_FRONTEND=1）"
+  if [ ! -d "$ROOT_DIR/internal/webstatic/build" ] || [ -z "$(ls -A "$ROOT_DIR/internal/webstatic/build" 2>/dev/null)" ]; then
+    echo "❌ 错误：internal/webstatic/build/ 不存在或为空！"
+    echo "   请先运行一次完整构建：bash scripts/build-and-deploy.sh"
+    exit 1
+  fi
 fi
 
 # ── 2. 同步到服务器（显式包含 web/build，忽略 node_modules / .git 等）────────
