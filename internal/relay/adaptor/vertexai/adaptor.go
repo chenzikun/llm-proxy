@@ -12,6 +12,7 @@ import (
 	"github.com/zicorn/llm-proxy/internal/relay/adaptor"
 	channelhelper "github.com/zicorn/llm-proxy/internal/relay/adaptor"
 	"github.com/zicorn/llm-proxy/internal/relay/entity"
+	"github.com/zicorn/llm-proxy/internal/relay/wireformat"
 )
 
 var _ adaptor.RelayAdaptor = new(Adaptor)
@@ -61,7 +62,7 @@ func (a *Adaptor) GetChannelName() string {
 
 func (a *Adaptor) GetRequestURL(meta *objects.Meta) (string, error) {
 	suffix := ""
-	if strings.HasPrefix(meta.ActualModelName, "gemini") || strings.HasPrefix(meta.ActualModelName, "endpoints") {
+	if wireformat.IsVertexGeminiModel(meta.ActualModelName) {
 		if meta.IsStream {
 			suffix = "streamGenerateContent?alt=sse"
 		} else {
