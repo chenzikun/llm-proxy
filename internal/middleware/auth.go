@@ -150,8 +150,12 @@ func TokenAuth() func(c *gin.Context) {
 			}
 		}
 
-		// set channel id for proxy relay
+		// 指定渠道属管理员操作，URL 参数形式与 sk-xxx-{渠道ID} 形式权限必须一致
 		if channelId := c.Param("channelid"); channelId != "" {
+			if !model.IsAdmin(token.UserId) {
+				abortWithMessage(c, http.StatusForbidden, "普通用户不支持指定渠道")
+				return
+			}
 			c.Set(ctxkey.SpecificChannelId, channelId)
 		}
 
