@@ -2,8 +2,11 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/zicorn/llm-proxy/internal/handler"
 	"github.com/zicorn/llm-proxy/internal/middleware"
+	"github.com/zicorn/llm-proxy/internal/relay/pipeline"
+
+	// 触发各入站 spec 的 init 注册，Handler 才能查到它们
+	_ "github.com/zicorn/llm-proxy/internal/relay/pipeline/inbound"
 )
 
 // SetNativeRelayRouter 注册原生格式 API 路由。
@@ -32,7 +35,7 @@ func SetNativeRelayRouter(router *gin.Engine) {
 	anthropicRouter := router.Group("/anthropic")
 	anthropicRouter.Use(middlewares...)
 	{
-		anthropicRouter.Any("/*path", controller.RelayNative)
+		anthropicRouter.Any("/*path", pipeline.Handler("anthropic.native"))
 	}
 
 	// Google Gemini API
@@ -40,7 +43,7 @@ func SetNativeRelayRouter(router *gin.Engine) {
 	geminiRouter := router.Group("/gemini")
 	geminiRouter.Use(middlewares...)
 	{
-		geminiRouter.Any("/*path", controller.RelayNative)
+		geminiRouter.Any("/*path", pipeline.Handler("gemini.native"))
 	}
 
 	// Vertex AI API
@@ -48,6 +51,6 @@ func SetNativeRelayRouter(router *gin.Engine) {
 	vertexaiRouter := router.Group("/vertexai")
 	vertexaiRouter.Use(middlewares...)
 	{
-		vertexaiRouter.Any("/*path", controller.RelayNative)
+		vertexaiRouter.Any("/*path", pipeline.Handler("vertexai.native"))
 	}
 }

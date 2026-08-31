@@ -7,7 +7,6 @@ import (
 	"github.com/zicorn/llm-proxy/internal/objects"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zicorn/llm-proxy/pkg/common"
@@ -19,7 +18,6 @@ import (
 	dbmodel "github.com/zicorn/llm-proxy/internal/repo"
 	"github.com/zicorn/llm-proxy/internal/monitor"
 	relaycontroller "github.com/zicorn/llm-proxy/internal/relay/controller"
-	"github.com/zicorn/llm-proxy/internal/relay/nativeformat"
 	"github.com/zicorn/llm-proxy/internal/relay/relaymode"
 )
 
@@ -162,39 +160,5 @@ func RelayNotFound(c *gin.Context) {
 	})
 }
 
-// RelayNative 处理原生格式的 API 请求（Anthropic / Google / Vertex AI 等）。
-// 根据请求路径前缀识别格式，替换鉴权信息后透明转发到上游。
-func RelayNative(c *gin.Context) {
-	ctx := c.Request.Context()
-	path := c.Request.URL.Path
-
-	// 根据路径前缀判断格式
-	format := ""
-	for prefix, f := range nativeformat.URLPrefixToFormat {
-		if strings.HasPrefix(path, prefix) {
-			format = f
-			break
-		}
-	}
-	if format == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": gin.H{"message": "unknown native format for path: " + path},
-		})
-		return
-	}
-
-	channelId := c.GetInt(ctxkey.ChannelId)
-	bizErr := relaycontroller.RelayNativeHelper(c, format)
-	if bizErr == nil {
-		monitor.Emit(channelId, true)
-		return
-	}
-
-	userId := c.GetInt(ctxkey.UserId)
-	channelName := c.GetString(ctxkey.ChannelName)
-	go processChannelRelayError(ctx, userId, channelId, channelName, bizErr)
-
-	c.JSON(bizErr.StatusCode, gin.H{
-		"error": bizErr.Error,
-	})
-}
+// 原生格式（/anthropic、/gemini、/vertexai）的转发已收归 relay/pipeline，
+// 由 pipeline.Handler 直接绑定路由，计费与日志在管线内部强制生效。
