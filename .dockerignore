@@ -4,6 +4,7 @@ logs
 upload
 node_modules
 web/node_modules
+internal/webstatic/build
 *.db
 *.db-journal
 .env
