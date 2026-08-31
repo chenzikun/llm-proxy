@@ -36,8 +36,8 @@ rsync -az --progress \
 # ── 2. 服务器：Docker 全量构建（含前端）并重启 ──────────────────────────────
 echo "🐳 服务器重建镜像（前端 + 后端）并重启..."
 ssh "$SSH_HOST" "cd $REMOTE_DIR && \
-  docker compose -p llm-proxy -f docker/docker-compose.prod.yml build llm-proxy && \
-  docker compose -p llm-proxy -f docker/docker-compose.prod.yml up -d"
+  docker compose -f docker/docker-compose.prod.yml build llm-proxy && \
+  docker compose -f docker/docker-compose.prod.yml up -d"
 
 echo ""
 echo "✅ 部署完成！服务地址：http://10.229.20.93:3000"
