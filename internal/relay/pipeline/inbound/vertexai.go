@@ -24,7 +24,10 @@ var vertexActionKinds = map[string]pipeline.Kind{
 // gemini-* 的请求体是 Gemini 格式，claude-* 是 Anthropic 格式。这里按模型判定，
 // 与 wireformat.Resolve 对上游的判定使用同一个谓词。
 func resolveVertexAI(c *gin.Context) (*pipeline.Operation, error) {
-	op := &pipeline.Operation{Kind: pipeline.KindMetadata}
+	op := &pipeline.Operation{
+		Kind:       pipeline.KindMetadata,
+		APIVersion: inboundAPIVersion(c.Request.URL.Path),
+	}
 
 	m := geminiModelActionRe.FindStringSubmatch(c.Request.URL.Path)
 	if m == nil {

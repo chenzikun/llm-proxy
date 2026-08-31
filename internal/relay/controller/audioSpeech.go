@@ -18,6 +18,7 @@ import (
 	"github.com/zicorn/llm-proxy/internal/objects"
 	"github.com/zicorn/llm-proxy/internal/relay/adaptor/openai"
 	"github.com/zicorn/llm-proxy/internal/relay/channeltype"
+	"github.com/zicorn/llm-proxy/internal/relay/entity"
 )
 
 // RelayAudioSpeechHelper is a helper function for audio TTS(channelType.AudioSpeech) relay
@@ -138,7 +139,6 @@ func RelayAudioSpeechHelper(c *gin.Context, relayMode int) *objects.ErrorWithSta
 
 	resp, err := client.HTTPClient.Do(req)
 	if err != nil {
-		succeed = false
 		return objects.ErrorWrapper(err, "do_request_failed", http.StatusInternalServerError)
 	}
 
@@ -159,13 +159,17 @@ func RelayAudioSpeechHelper(c *gin.Context, relayMode int) *objects.ErrorWithSta
 		return RelayErrorHandler(resp)
 	}
 
-	//io.ReadAll(req.Body)
-	//json.Unmarshal()
-	//quotaDelta := quota - preConsumedQuota
-	//defer func(ctx context.Context) {
-	//	go objects.PostConsumeQuota(ctx, usage, meta, preConsumedQuota)
-	//	go billing.PostConsumeQuota(ctx, meta.TokenId, quotaDelta, quota, meta.UserId, meta.ChannelId, modelRatio, groupRatio, audioModel, meta.TokenName)
-	//}(c.Request.Context())
+	// 上游已确认成功，转入正式结算，defer 不再回滚预扣
+	succeed = true
+
+	// TTS 无输出 token，按输入字符折算的 prompt tokens 计费
+	usage := &entity.Usage{
+		PromptTokens: objects.PredictAudioPromptTokenCount(ttsRequest.Input, meta.Mode),
+	}
+	usage.TotalTokens = usage.PromptTokens
+	defer func(ctx context.Context) {
+		go objects.PostConsumeQuota(ctx, usage, meta, preConsumedQuota)
+	}(c.Request.Context())
 
 	for k, v := range resp.Header {
 		c.Writer.Header().Set(k, v[0])

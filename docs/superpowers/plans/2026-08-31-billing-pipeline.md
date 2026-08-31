@@ -1047,10 +1047,32 @@ git commit -m "feat(pipeline): spec 定义与注册表
 - Test: `internal/relay/pipeline/billing_test.go`
 
 **Interfaces:**
-- Consumes: Task 1 `wireformat.Resolve`；Task 2 `usage.Get`；Task 5 `RelaySpec / Operation / Mode`；`objects.GetRequestMeta / PreCost / PostCost`；`model.GetModelMetaByModel`
+- Consumes: Task 1 `wireformat.Resolve`；Task 2 `usage.Get`；Task 5 `RelaySpec / Operation / Mode`；`objects.GetRequestMeta`、`objects.PostConsumeQuota`、`model.GetModelMetaByModel`
 - Produces:
   - `func Execute(c *gin.Context, spec *RelaySpec) *objects.ErrorWithStatusCode`
-  - `func computeQuota(modelMeta *model.ModelMeta, groupRatio float64, u *entity.Usage) (int64, string)`
+  - `func objects.PreConsumeQuotaByTokens(ctx context.Context, promptTokens int, meta *Meta) (int64, *ErrorWithStatusCode)`
+
+> **实施期修正（不再实现 `computeQuota`）**
+>
+> 原计划要在 pipeline 内新写 `computeQuota` 计算额度与日志文案。实施时发现
+> `objects.PostConsumeQuota`（`internal/objects/billing.go:63`）已完整实现
+> 同一套逻辑：`getModelPricesInCNY` 换算汇率、`tokenQuotaRatio` 折算每 token
+> 额度、`cache_price > 0` 才启用缓存折扣、各项 `math.Ceil` 后相加、
+> `totalTokens == 0` 归零、有定价且有用量时至少扣 1、生成中文日志文案，
+> 最后调用 `PostCost`。
+>
+> 再写一份等价实现会产生两套计费公式，任何一侧调价都可能漂移，这正是本次
+> 重构要消除的问题。因此 pipeline 改为直接调用 `objects.PostConsumeQuota`，
+> 只负责把 usage 解析出来（解析失败传零值 usage，`PostCost` 会把预扣退回，
+> 等价于"扣 0"策略）。
+>
+> 预扣侧同理：`PreConsumeQuota` 依赖已解析的 `GeneralOpenAIRequest`，透传链路
+> 没有；新增 `objects.PreConsumeQuotaByTokens` 复用 `getModelPricesInCNY /
+> tokenQuotaRatio / getPreConsumedQuota / PreCost` 这几个既有私有辅助函数，
+> 不重写计价。
+>
+> 因此本任务的 Step 1-4（`computeQuota` 的 TDD 循环）作废，改为 Step 1' 与
+> Step 2'。
 
 - [ ] **Step 1: 写失败的测试**
 

@@ -37,6 +37,12 @@ func Execute(c *gin.Context, spec *RelaySpec) *objects.ErrorWithStatusCode {
 	meta.ActualModelName, _ = objects.ResolveModelName(op.Model, meta.ModelMapping)
 	meta.IsStream = op.IsStream
 
+	// 透传时客户端显式选择的 API 版本优先于渠道默认值，否则原生 SDK 请求的
+	// v1beta 会被渠道默认的 v1 覆盖，新模型的特性将不可用。
+	if spec.Mode == ModePassthrough && op.APIVersion != "" {
+		meta.Config.APIVersion = op.APIVersion
+	}
+
 	if op.Kind == KindUnsupported {
 		return objects.ErrorWrapper(
 			fmt.Errorf("原生透传暂不支持 %s 操作，请改用 OpenAI 兼容接口，否则无法正确计费", op.Action),

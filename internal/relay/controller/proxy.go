@@ -47,11 +47,19 @@ func RelayProxyHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 	}
 
 	// do response
-	_, _, respErr := adaptor.DoResponse(c, resp, meta)
+	usage, _, respErr := adaptor.DoResponse(c, resp, meta)
 	if respErr != nil {
 		logger.Errorf(ctx, "[RelayProxyHelper] respErr is not nil: %+v", respErr)
 		return respErr
 	}
+
+	// rerank 与 oneapi/proxy 都走这条链路，此前 usage 被直接丢弃导致零计费
+	if usage == nil {
+		logger.Errorf(ctx, "[RelayProxyHelper] 用量解析异常：模型 %s 未返回 usage，按 0 结算，需补适配",
+			meta.ActualModelName)
+		return nil
+	}
+	objects.PostConsumeQuota(ctx, usage, meta, 0)
 
 	return nil
 }

@@ -44,6 +44,12 @@ type Operation struct {
 	IsStream    bool
 	// Action 仅用于错误信息，便于定位是哪个原生操作未被支持。
 	Action string
+	// APIVersion 客户端在入站路径上指定的上游 API 版本（如 v1beta）。
+	//
+	// 透传模式下必须尊重客户端的选择：原生 SDK 大多打 v1beta，而渠道配置的
+	// 默认值是 v1，用默认值覆盖会让新模型的特性不可用。为空表示路径中没有
+	// 版本段，此时沿用渠道配置。
+	APIVersion string
 }
 
 // Billable 报告该操作是否需要计费。

@@ -12,6 +12,17 @@ import (
 // geminiModelActionRe 匹配 Gemini 路径中的 /models/{model}:{action} 段。
 var geminiModelActionRe = regexp.MustCompile(`/models/([^/:?]+)(?::([^/?]+))?`)
 
+// apiVersionRe 匹配路径中的 API 版本段，如 /gemini/v1beta/models/... 中的 v1beta。
+var apiVersionRe = regexp.MustCompile(`^/[^/]+/(v[0-9a-z]+)(?:/|$)`)
+
+// inboundAPIVersion 取出客户端在路径上指定的上游 API 版本，取不到则返回空串。
+func inboundAPIVersion(path string) string {
+	if m := apiVersionRe.FindStringSubmatch(path); m != nil {
+		return m[1]
+	}
+	return ""
+}
+
 // geminiActionKinds 列出各原生操作的处置方式。
 //
 // 未列出的操作按 KindMetadata 处理（模型列表等只读接口）。会产生 token 用量的
@@ -29,7 +40,11 @@ var geminiActionKinds = map[string]pipeline.Kind{
 }
 
 func resolveGemini(c *gin.Context) (*pipeline.Operation, error) {
-	op := &pipeline.Operation{InboundWire: wireformat.Gemini, Kind: pipeline.KindMetadata}
+	op := &pipeline.Operation{
+		InboundWire: wireformat.Gemini,
+		Kind:        pipeline.KindMetadata,
+		APIVersion:  inboundAPIVersion(c.Request.URL.Path),
+	}
 
 	m := geminiModelActionRe.FindStringSubmatch(c.Request.URL.Path)
 	if m == nil {

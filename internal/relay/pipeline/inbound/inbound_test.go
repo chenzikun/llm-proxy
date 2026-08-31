@@ -98,6 +98,26 @@ func TestResolveAnthropicCountTokensNotBillable(t *testing.T) {
 	assert.False(t, op.Billable())
 }
 
+// 透传必须尊重客户端在路径上选的 API 版本：渠道默认是 v1，而原生 SDK 打 v1beta，
+// 用默认值覆盖会让新模型的特性不可用。
+func TestInboundAPIVersionPreserved(t *testing.T) {
+	op, _ := resolveGemini(ctxWithRequest(http.MethodPost,
+		"/gemini/v1beta/models/gemini-2.5-flash:generateContent", ""))
+	assert.Equal(t, "v1beta", op.APIVersion)
+
+	op, _ = resolveGemini(ctxWithRequest(http.MethodPost,
+		"/gemini/v1/models/gemini-2.5-flash:generateContent", ""))
+	assert.Equal(t, "v1", op.APIVersion)
+
+	op, _ = resolveVertexAI(ctxWithRequest(http.MethodPost,
+		"/vertexai/v1beta1/models/gemini-2.5-flash:generateContent", ""))
+	assert.Equal(t, "v1beta1", op.APIVersion)
+
+	// 路径里没有版本段时留空，由渠道配置决定
+	op, _ = resolveGemini(ctxWithRequest(http.MethodPost, "/gemini/models", ""))
+	assert.Equal(t, "", op.APIVersion)
+}
+
 // 三份 spec 必须都在 init 中注册，否则路由绑定时服务会 panic。
 func TestSpecsRegistered(t *testing.T) {
 	for _, name := range []string{"gemini.native", "anthropic.native", "vertexai.native"} {
