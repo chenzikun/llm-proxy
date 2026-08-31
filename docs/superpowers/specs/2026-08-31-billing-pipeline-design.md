@@ -10,7 +10,7 @@
 
 | 路径 | 问题 |
 |---|---|
-| `ANY /v1/oneapi/proxy/:channelid/*` | `RelayProxyHelper` 零计费，且 `TokenAuth` 对 URL 参数形式的 `channelid` 未做管理员校验，任意令牌可指定任意渠道免费转发 |
+| `ANY /v1/oneapi/proxy/:channelid/*` | `RelayProxyHelper` 零计费，`ProxyAdaptor.DoResponse` 亦返回 nil usage；且 `TokenAuth` 对 URL 参数形式的 `channelid` 未做管理员校验，任意持有效令牌的普通用户可枚举渠道 ID 免费转发 |
 | `POST /v1/rerank` | fallthrough 到 `RelayProxyHelper`，零计费 |
 | `POST /v1/audio/speech` | `PostConsume` 整段被注释，且 `succeed` 从未置 true，预扣必然回滚，TTS 实际免费 |
 | `/gemini` `/anthropic` `/vertexai` | 原生透传自行发请求、自行解析用量，未接入 `model_meta` 校验 |
@@ -152,9 +152,12 @@ type Operation struct {
     Billable bool
     // InboundWire 入站 wire 格式。ModePassthrough 下用于与上游 wire 格式校验，
     // ModeNormalize 下恒为 wireformat.OpenAI 且不参与校验。
+    // wireformat.Unspecified 表示入站不对格式做任何声明（裸转发），跳过校验。
     InboundWire wireformat.Format
 }
 ```
+
+`wireformat.Unspecified` 用于 `oneapi.proxy` 这类打到任意上游路径的裸转发：入站格式完全由调用方决定，无法也无需与渠道校验。但响应必然来自该渠道，所以 usage 仍按渠道解析出的 wire 格式提取，计费不受影响。
 
 `Billable` 与 wire 格式必须按请求解析，不能是 spec 的静态字段。同一前缀下不同操作的计费属性不同（`:generateContent` 计费，`:countTokens` 与 `GET /models` 不计费），同一渠道下不同模型的 wire 格式也不同。
 
@@ -244,8 +247,17 @@ pipeline.ANY(vertexaiRouter,  "/*path", "vertexai.native")
 | `ANY /gemini/*path` | `gemini.native` | Passthrough | 按操作解析 |
 | `ANY /anthropic/*path` | `anthropic.native` | Passthrough | 按操作解析 |
 | `ANY /vertexai/*path` | `vertexai.native` | Passthrough | 按操作解析 |
+| `ANY /v1/oneapi/proxy/:channelid/*target` | `oneapi.proxy` | Passthrough | 能解析出模型则计费 |
 
-`ANY /v1/oneapi/proxy/:channelid/*target` 需单独处置。它是无计费的任意渠道裸转发，且缺少管理员校验，与本设计的强制计费原则直接冲突。建议下线该路由；若业务确需保留，须改为管理员专用并接入计费。此项待确认。
+### oneapi.proxy 的处置
+
+保留该路由作为逃生通道（调用代理尚未适配的上游端点），但补齐三项约束：
+
+1. **改为管理员专用**。`TokenAuth` 中 URL 参数形式的 `channelid` 补 `IsAdmin` 校验，与 `sk-xxx-{渠道ID}` 形式行为一致。这消除了"同一件事（指定渠道）在两条路径上权限不同"的不一致，而这正是漏洞的成因。
+2. **接入计费**。纳入管线，`InboundWire` 为 `wireformat.Unspecified` 跳过格式校验，usage 按渠道解析出的 wire 格式提取。
+3. **模型解析规则**。从 JSON body 的 `model` 字段解析；解析不出（非 JSON body、GET 请求、或调用的是非生成类上游端点）则 `Billable = false` 放行。
+
+第 3 条理论上是个缺口——构造无 `model` 字段的请求可规避计费。接受该风险的理由是路由已限制为管理员专用，管理员属可信主体，且用逃生通道调用非生成类端点是正当用途。若日后需要收紧，可改为按上游路径白名单判定计费属性。
 
 原生前缀下的非计费操作：
 
@@ -282,7 +294,8 @@ pipeline.ANY(vertexaiRouter,  "/*path", "vertexai.native")
 | `Resolve` 单测 | 表驱动，给定 URL 与 body，断言模型名、Billable、入站 wire 格式 |
 | `UsageExtractor` 单测 | 给定各 wire 格式的真实响应 fixture（流式与非流式），断言 usage |
 | wire 格式解析单测 | 给定 (渠道类型, 模型)，断言 wire 格式，覆盖 Vertex 的 Gemini/Claude 分派 |
-| 管线单测 | model_meta 缺失时拒绝；价格 0 时放行且扣 0；usage 解析失败时扣 0 并记日志；wire 不匹配时拒绝 |
+| 管线单测 | model_meta 缺失时拒绝；价格 0 时放行且扣 0；usage 解析失败时扣 0 并记日志；wire 不匹配时拒绝；`Unspecified` 时跳过校验但仍结算 |
+| 权限单测 | 普通用户访问 `oneapi/proxy` 返回 403；管理员放行。两种指定渠道形式（URL 参数与 `sk-xxx-{id}`）行为一致 |
 | 注册表完整性测试 | 遍历所有已注册路由，断言均有对应 spec |
 
 `UsageExtractor` 的 fixture 需覆盖已知的四处真实格式：Gemini 非流式 `usageMetadata`、Gemini SSE 末尾 chunk、Anthropic 非流式 `usage`、Anthropic SSE 的 `message_start` 加 `message_delta`。
@@ -292,7 +305,4 @@ pipeline.ANY(vertexaiRouter,  "/*path", "vertexai.native")
 1. `TokenAuth` 中 URL 参数形式的 `channelid` 补管理员校验，与 `parts[1]` 形式一致
 2. 恢复 `vertexai.GetAdaptor` 被注释的模型分派逻辑
 3. 删除 `internal/relay/controller/native_billing.go`，其解析逻辑迁入按 wire 格式组织的 usage 包
-
-## 待确认事项
-
-`ANY /v1/oneapi/proxy/:channelid/*target` 的处置方式：下线，还是改为管理员专用并接入计费。
+4. `native.go` 停止拼接入站 URL，改为委托渠道适配器构造上游地址，修正 Vertex 渠道下地址错误的问题
