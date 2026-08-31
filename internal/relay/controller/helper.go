@@ -35,14 +35,7 @@ func getAndValidateTextRequest(c *gin.Context, relayMode int) (*relaymodel.Gener
 }
 
 func getMappedModelName(modelName string, mapping map[string]string) (string, bool) {
-	if mapping == nil {
-		return modelName, false
-	}
-	mappedModelName := mapping[modelName]
-	if mappedModelName != "" {
-		return mappedModelName, true
-	}
-	return modelName, false
+	return objects.ResolveModelName(modelName, mapping)
 }
 
 func isErrorHappened(meta *objects.Meta, resp *http.Response) bool {

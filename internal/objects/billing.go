@@ -142,6 +142,24 @@ func PreConsumeQuotaForAudio(ctx context.Context, input string, meta *Meta) (int
 	return preConsumedQuota, nil
 }
 
+// PreConsumeQuotaByTokens 按已知的 prompt token 数预扣额度。
+//
+// 供不解析请求体的透传链路使用（原生 Gemini / Anthropic 前缀）：这些链路拿不到
+// GeneralOpenAIRequest，无法走 PreConsumeQuota。promptTokens 传 0 表示无法预估，
+// 此时只按 config.PreConsumedQuota 的保底额度做余额校验。
+func PreConsumeQuotaByTokens(ctx context.Context, promptTokens int, meta *Meta) (int64, *ErrorWithStatusCode) {
+	modelMeta, err := model.GetModelMetaByModel(meta.ActualModelName)
+	if err != nil {
+		return 0, ErrorWrapper(err, "get_model_meta_failed", http.StatusInternalServerError)
+	}
+	inputPriceCNY, _, _ := getModelPricesInCNY(modelMeta)
+	groupRatio := billingratio.GetGroupRatio(meta.Group)
+	inputRatio := tokenQuotaRatio(inputPriceCNY, groupRatio)
+
+	meta.PromptTokens = promptTokens
+	return PreCost(ctx, meta, getPreConsumedQuota(0, promptTokens, inputRatio))
+}
+
 func PreCost(ctx context.Context, meta *Meta, preConsumedQuota int64) (int64, *ErrorWithStatusCode) {
 	userQuota, err := model.CacheGetUserQuota(ctx, meta.UserId)
 	if err != nil {
