@@ -9,12 +9,14 @@
 # 可选环境变量：
 #   SSH_HOST   远程主机（默认 ubuntu）
 #   REMOTE_DIR 远程目录（默认 ~/llm-proxy）
+#   ENV_FILE   compose 环境变量文件（默认 docker/cloud.env，ubuntu 部署用）
 
 set -e
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SSH_HOST="${SSH_HOST:-ubuntu}"
 REMOTE_DIR="${REMOTE_DIR:-~/llm-proxy}"
+ENV_FILE="${ENV_FILE:-docker/cloud.env}"
 
 cd "$ROOT_DIR"
 
@@ -35,9 +37,9 @@ rsync -az --progress \
 
 # ── 2. 服务器：Docker 全量构建（含前端）并重启 ──────────────────────────────
 echo "🐳 服务器重建镜像（前端 + 后端）并重启..."
-ssh "$SSH_HOST" "cd $REMOTE_DIR && \
-  docker compose --env-file docker/.env -f docker/docker-compose.prod.yml build llm-proxy && \
-  docker compose --env-file docker/.env -f docker/docker-compose.prod.yml up -d"
+ssh "$SSH_HOST" "cd $REMOTE_DIR/docker && \
+  docker compose --env-file cloud.env -f docker-compose.prod.yml build llm-proxy && \
+  docker compose --env-file cloud.env -f docker-compose.prod.yml up -d --force-recreate llm-proxy"
 
 echo ""
 echo "✅ 部署完成！服务地址：http://10.229.20.93:3000"

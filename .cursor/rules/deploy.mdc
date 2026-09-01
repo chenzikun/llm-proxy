@@ -26,13 +26,14 @@ SKIP_FRONTEND=1 bash scripts/build-and-deploy.sh
 - SSH Host: `ubuntu`（`~/.ssh/config` 中已配置）
 - 远程目录: `~/llm-proxy`
 - 服务地址: `http://10.229.20.93:3000`
-- Docker Compose: `docker/docker-compose.prod.yml`，project name `llm-proxy`
+- Docker Compose: `docker/docker-compose.prod.yml`，环境变量 `docker/cloud.env`，project name `llm-proxy`
 
 ## Docker 目录结构
 
 ```
 docker/
-├── Dockerfile             # 仅编译 Go 二进制，前端需本地预先构建
-├── docker-compose.prod.yml # 生产环境：llm-proxy + llm-redis
+├── Dockerfile             # 多阶段构建：前端 + 后端
+├── docker-compose.prod.yml  # 生产环境
+├── cloud.env                # ubuntu 部署环境变量
 └── nginx.conf
 ```
