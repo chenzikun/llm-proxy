@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/pkoukk/tiktoken-go"
 	"github.com/zicorn/llm-proxy/pkg/common/config"
@@ -246,11 +247,13 @@ func PredictChatPromptTokenCount(textRequest *entity.GeneralOpenAIRequest, relay
 	return 0
 }
 
-// PredictAudioPromptTokenCount 预测语音任务中提示词的token数量
+// PredictAudioPromptTokenCount 预测语音任务的计量单位数量
 func PredictAudioPromptTokenCount(input string, relayMode int) int {
 	switch relayMode {
 	case relaymode.AudioSpeech:
-		return len(input)
+		// TTS 上游按字符计价，必须数 rune。用 len() 会得到 UTF-8 字节数，
+		// 中文每字 3 字节，会导致超收 3 倍。
+		return utf8.RuneCountInString(input)
 	default:
 		return int(config.PreConsumedQuota)
 	}
