@@ -209,7 +209,7 @@ func RelayImageHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 	}
 
 	defer func(ctx context.Context) {
-		if resp != nil && resp.StatusCode != http.StatusOK {
+		if resp == nil || resp.StatusCode != http.StatusOK {
 			return
 		}
 		succeed = true // 上游返回 200，取消退款守卫
