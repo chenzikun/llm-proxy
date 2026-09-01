@@ -20,6 +20,7 @@ type AddModelMetaRequest struct {
 	OutputPrice float64 `json:"output_price"`
 	CachePrice  float64 `json:"cache_price"`
 	PriceUnit   string  `json:"price_unit"`
+	BillingUnit string  `json:"billing_unit"`
 }
 
 // UpdateModelMetaRequest 更新 ModelMeta 的请求结构体
@@ -32,6 +33,7 @@ type UpdateModelMetaRequest struct {
 	OutputPrice *float64 `json:"output_price"`
 	CachePrice  *float64 `json:"cache_price"`
 	PriceUnit   *string  `json:"price_unit"`
+	BillingUnit *string  `json:"billing_unit"`
 }
 
 // GetAllModelMetas 获取模型元数据列表（支持分页）
@@ -81,6 +83,17 @@ func AddModelMeta(c *gin.Context) {
 	if priceUnit == "" {
 		priceUnit = "CNY"
 	}
+	billingUnit := req.BillingUnit
+	if billingUnit == "" {
+		billingUnit = model.BillingUnitToken
+	}
+	if !model.IsValidBillingUnit(billingUnit) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "billing_unit 取值非法，可选：token / char / second / image",
+		})
+		return
+	}
 	// 构造 ModelMeta 对象
 	meta := &model.ModelMeta{
 		Model:       req.Model,
@@ -90,6 +103,7 @@ func AddModelMeta(c *gin.Context) {
 		OutputPrice: req.OutputPrice,
 		CachePrice:  req.CachePrice,
 		PriceUnit:   priceUnit,
+		BillingUnit: billingUnit,
 	}
 
 	// 调用 AddModelMeta 函数
@@ -177,6 +191,16 @@ func UpdateModelMeta(c *gin.Context) {
 	}
 	if req.PriceUnit != nil {
 		updates["price_unit"] = *req.PriceUnit
+	}
+	if req.BillingUnit != nil {
+		if !model.IsValidBillingUnit(*req.BillingUnit) {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "billing_unit 取值非法，可选：token / char / second / image",
+			})
+			return
+		}
+		updates["billing_unit"] = *req.BillingUnit
 	}
 
 	//logger.Infof(c, "model meta : %#v", model_meta)
@@ -353,6 +377,15 @@ func BatchAddModelMeta(c *gin.Context) {
 	for _, modelMeta := range modelMetas {
 		if modelMeta.Model == "" {
 			continue
+		}
+		if modelMeta.BillingUnit == "" {
+			modelMeta.BillingUnit = model.BillingUnitToken
+		}
+		if !model.IsValidBillingUnit(modelMeta.BillingUnit) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("模型 %s 的 billing_unit 取值非法：%s", modelMeta.Model, modelMeta.BillingUnit),
+			})
+			return
 		}
 		count++
 		if err := model.CreateOrUpdateModelMeta(&modelMeta); err != nil {

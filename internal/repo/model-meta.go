@@ -21,8 +21,27 @@ type ModelMeta struct {
 	OutputPrice float64 `json:"output_price" gorm:"column:output_price;default:0" csv:"output_price"`
 	CachePrice  float64 `json:"cache_price" gorm:"column:cache_price;default:0" csv:"cache_price"`
 	PriceUnit   string  `json:"price_unit" gorm:"column:price_unit;default:'CNY'" csv:"price_unit"` // "CNY" 或 "USD"
+	// BillingUnit 计量单位，决定 input_price / output_price 中"每百万"的单位是什么
+	BillingUnit string  `json:"billing_unit" gorm:"column:billing_unit;default:'token'" csv:"billing_unit"`
 	CreatedTime int64   `json:"created_time" gorm:"bigint"`
 	UpdateTime  int64   `json:"update_time" gorm:"bigint"`
+}
+
+// 计量单位。价格字段恒为"每 100 万个计量单位的价格"，本枚举决定这个单位是什么。
+const (
+	BillingUnitToken  = "token"  // 文本、按 token 计价的图片模型
+	BillingUnitChar   = "char"   // TTS，按输入字符
+	BillingUnitSecond = "second" // 转写 / 翻译，按音频秒数
+	BillingUnitImage  = "image"  // 按张计价的图片模型
+)
+
+// IsValidBillingUnit 校验计量单位取值。空字符串不合法，写入方需显式落 token。
+func IsValidBillingUnit(unit string) bool {
+	switch unit {
+	case BillingUnitToken, BillingUnitChar, BillingUnitSecond, BillingUnitImage:
+		return true
+	}
+	return false
 }
 
 func GetModelMetaByModel(model string) (*ModelMeta, error) {
