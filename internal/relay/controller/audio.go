@@ -33,6 +33,21 @@ func RelayAudioHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 	tokenId := c.GetInt(ctxkey.TokenId)
 	channelType := c.GetInt(ctxkey.ChannelType)
 
+	modelMeta, err := model.GetModelMetaByModel(meta.ActualModelName)
+	if err != nil {
+		return objects.ErrorWrapper(
+			fmt.Errorf("模型 %s 未配置，请联系管理员在模型管理中添加", meta.ActualModelName),
+			"model_not_configured", http.StatusBadRequest)
+	}
+	// 价格字段恒为"每 100 万个计量单位的价格"，音频按秒计量。billing_unit 的数据库默认值是
+	// token，若管理员建模型时漏选 second，计费会拿按 token 定价的数字去乘秒数，静默算错金额。
+	if modelMeta.BillingUnit != model.BillingUnitSecond {
+		return objects.ErrorWrapper(
+			fmt.Errorf("模型 %s 的计量单位为 %s，音频转写/翻译仅支持 second",
+				meta.ActualModelName, modelMeta.BillingUnit),
+			"billing_unit_mismatch", http.StatusBadRequest)
+	}
+
 	preConsumedQuota, bizErr := objects.PreConsumeTranscriptionQuota(ctx, meta)
 	if bizErr != nil {
 		return bizErr
@@ -145,8 +160,14 @@ func RelayAudioHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 	}
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody.Bytes()))
-	// 客户端要求的格式，与发给上游的 verbose_json 无关
+	// 客户端要求的格式，与发给上游的 verbose_json 无关。
+	// 校验放在发起上游请求之前：非法取值应像 OpenAI 一样直接 400，而不是先把钱花出去。
 	clientResponseFormat := c.DefaultPostForm("response_format", "json")
+	if !isValidTranscriptionFormat(clientResponseFormat) {
+		return objects.ErrorWrapper(
+			fmt.Errorf("response_format 取值 %s 非法，可选：json / text / srt / verbose_json / vtt", clientResponseFormat),
+			"invalid_response_format", http.StatusBadRequest)
+	}
 
 	req, err := http.NewRequest(c.Request.Method, fullRequestURL, requestBody)
 	if err != nil {
@@ -203,15 +224,25 @@ func RelayAudioHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 
 	// 上游固定按 verbose_json 返回：先取 duration 用于按秒计费，
 	// 再降级成客户端原本请求的格式写回 resp.Body，供尾部统一拷贝。
+	//
+	// 解析不了则原样透传：contentType 为空表示未做转换，沿用上游的响应头。
+	var audioDuration float64
+	convertedBody := string(responseBody)
+	var contentType string
+
 	var verbose openai.WhisperVerboseJSONResponse
 	if err = json.Unmarshal(responseBody, &verbose); err != nil {
-		return objects.ErrorWrapper(err, "unmarshal_verbose_json_failed", http.StatusInternalServerError)
-	}
-	audioDuration := verbose.Duration
-
-	convertedBody, contentType, err := convertVerboseJSON(&verbose, clientResponseFormat)
-	if err != nil {
-		return objects.ErrorWrapper(err, "convert_response_format_failed", http.StatusInternalServerError)
+		// 很多 whisper 兼容服务会忽略 response_format=verbose_json 而返回纯文本或 SRT。
+		// 按既定策略降级：按 0 结算并告警，而不是让整个请求失败——500 既丢掉了上游本来
+		// 可用的响应，又会命中 shouldRetry 把同一段音频重投到所有渠道。
+		logger.Errorf(ctx, "[转写计费] 模型 %s 的上游响应不是 verbose_json，无法解析时长，按 0 结算并原样透传，需补适配: %s",
+			meta.ActualModelName, err.Error())
+	} else {
+		audioDuration = verbose.Duration
+		convertedBody, contentType, err = convertVerboseJSON(&verbose, responseBody, clientResponseFormat)
+		if err != nil {
+			return objects.ErrorWrapper(err, "convert_response_format_failed", http.StatusInternalServerError)
+		}
 	}
 	resp.Body = io.NopCloser(bytes.NewBufferString(convertedBody))
 
@@ -223,9 +254,12 @@ func RelayAudioHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 	for k, v := range resp.Header {
 		c.Writer.Header().Set(k, v[0])
 	}
-	// 上游返回的是 verbose_json 的类型与长度，必须按转换后的实际内容覆盖
-	c.Writer.Header().Set("Content-Type", contentType)
-	c.Writer.Header().Set("Content-Length", strconv.Itoa(len(convertedBody)))
+	// 上游返回的是 verbose_json 的类型与长度，必须按转换后的实际内容覆盖。
+	// contentType 为空表示上游响应无法解析、正在原样透传，此时上游的头部本就是对的。
+	if contentType != "" {
+		c.Writer.Header().Set("Content-Type", contentType)
+		c.Writer.Header().Set("Content-Length", strconv.Itoa(len(convertedBody)))
+	}
 	c.Writer.WriteHeader(resp.StatusCode)
 
 	_, err = io.Copy(c.Writer, resp.Body)
