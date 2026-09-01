@@ -90,6 +90,9 @@ AddModelMeta
 添加新的 ModelMeta 记录
 */
 func AddModelMeta(meta *ModelMeta) error {
+	if meta.BillingUnit == "" {
+		meta.BillingUnit = BillingUnitToken
+	}
 	// 设置创建时间和更新时间
 	meta.CreatedTime = helper.GetTimestamp()
 	meta.UpdateTime = meta.CreatedTime

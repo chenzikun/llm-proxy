@@ -7,6 +7,20 @@ import (
 	"github.com/zicorn/llm-proxy/pkg/common/helper"
 )
 
+func requireDB(t *testing.T) {
+	t.Helper()
+	if DB == nil {
+		t.Skip("repo 集成测试需要数据库，当前 DB 未初始化")
+	}
+	sqlDB, err := DB.DB()
+	if err != nil {
+		t.Skipf("repo 集成测试需要数据库，无法获取连接: %v", err)
+	}
+	if err := sqlDB.Ping(); err != nil {
+		t.Skipf("repo 集成测试需要数据库，Ping 失败: %v", err)
+	}
+}
+
 func TestIsValidBillingUnit(t *testing.T) {
 	valid := []string{BillingUnitToken, BillingUnitChar, BillingUnitSecond, BillingUnitImage}
 	for _, u := range valid {
@@ -23,6 +37,7 @@ func TestIsValidBillingUnit(t *testing.T) {
 }
 
 func TestCreateOrUpdateModelMeta_UpdatesBillingUnit(t *testing.T) {
+	requireDB(t)
 	modelName := fmt.Sprintf("test-billing-unit-%d", helper.GetTimestamp())
 	initial := &ModelMeta{
 		Model:       modelName,

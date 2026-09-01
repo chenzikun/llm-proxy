@@ -332,6 +332,9 @@ func UploadModelMeta(c *gin.Context) {
 		return
 	}
 	for _, modelMeta := range modelMetas {
+		if modelMeta.Model == "" {
+			continue
+		}
 		if err = model.CreateOrUpdateModelMeta(&modelMeta); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"error": err.Error(),
