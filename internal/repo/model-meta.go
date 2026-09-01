@@ -143,6 +143,7 @@ func CreateOrUpdateModelMeta(modelMeta *ModelMeta) error {
 			"output_price": modelMeta.OutputPrice,
 			"cache_price":  modelMeta.CachePrice,
 			"price_unit":   modelMeta.PriceUnit,
+			"billing_unit": modelMeta.BillingUnit,
 			"channel_type": modelMeta.ChannelType,
 		})
 	}

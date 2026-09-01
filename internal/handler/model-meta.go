@@ -325,6 +325,12 @@ func UploadModelMeta(c *gin.Context) {
 	}
 
 	// 遍历模型元数据
+	if invalidModel, invalidUnit, ok := validateModelMetaBillingUnits(modelMetas); !ok {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("模型 %s 的 billing_unit 取值非法：%s", invalidModel, invalidUnit),
+		})
+		return
+	}
 	for _, modelMeta := range modelMetas {
 		if err = model.CreateOrUpdateModelMeta(&modelMeta); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -374,18 +380,15 @@ func BatchAddModelMeta(c *gin.Context) {
 	}
 
 	count := 0
+	if invalidModel, invalidUnit, ok := validateModelMetaBillingUnits(modelMetas); !ok {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": fmt.Sprintf("模型 %s 的 billing_unit 取值非法：%s", invalidModel, invalidUnit),
+		})
+		return
+	}
 	for _, modelMeta := range modelMetas {
 		if modelMeta.Model == "" {
 			continue
-		}
-		if modelMeta.BillingUnit == "" {
-			modelMeta.BillingUnit = model.BillingUnitToken
-		}
-		if !model.IsValidBillingUnit(modelMeta.BillingUnit) {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": fmt.Sprintf("模型 %s 的 billing_unit 取值非法：%s", modelMeta.Model, modelMeta.BillingUnit),
-			})
-			return
 		}
 		count++
 		if err := model.CreateOrUpdateModelMeta(&modelMeta); err != nil {
