@@ -23,7 +23,7 @@ import {
 
 import { Formik } from 'formik';
 import * as Yup from 'yup';
-import { defaultConfig } from '../type/Config'; //typeConfig
+import { defaultConfig, BILLING_UNITS } from '../type/Config'; //typeConfig
 
 
 const floatSchema = Yup.number().min(0, '价格不能为负数').transform((value, originalValue) => {
@@ -41,6 +41,7 @@ const validationSchema = Yup.object().shape({
   output_price: floatSchema,
   cache_price: floatSchema,
   price_unit: Yup.string().oneOf(['CNY', 'USD'], '请选择有效的货币单位'),
+  billing_unit: Yup.string().oneOf(['token', 'char', 'second', 'image'], '请选择有效的计量单位'),
 });
 
 const EditModal = ({ open, modelMetaId, onCancel, onOk }) => {
@@ -66,13 +67,24 @@ const EditModal = ({ open, modelMetaId, onCancel, onOk }) => {
     setBasicModels(localModels);
   };
 
+  // billing_unit=image 时后端存的是“每百万张”的价格，界面按“每张”展示，
+  // 避免管理员为 ¥0.3/张 填写 300000 这种反直觉的数字
+  const toDisplayPrice = (value, unit) => (unit === 'image' ? (Number(value) || 0) / 1000000 : Number(value) || 0);
+  const toStoredPrice = (value, unit) => (unit === 'image' ? (Number(value) || 0) * 1000000 : Number(value) || 0);
+
+  const priceSuffix = (unit) => {
+    const found = BILLING_UNITS.find((u) => u.value === unit);
+    return found ? found.priceUnit : '百万 token';
+  };
+
   const submit = async (values, { setErrors, setStatus, setSubmitting }) => {
     setSubmitting(true);
 
     let res;
-    values.input_price = parseFloat(values.input_price) || 0;
-    values.output_price = parseFloat(values.output_price) || 0;
-    values.cache_price = parseFloat(values.cache_price) || 0;
+    const unit = values.billing_unit || 'token';
+    values.input_price = toStoredPrice(values.input_price, unit);
+    values.output_price = toStoredPrice(values.output_price, unit);
+    values.cache_price = toStoredPrice(values.cache_price, unit);
     if (modelMetaId) {
       // 修改时提交
       res = await API.put(`/api/model-meta/`, {
@@ -107,7 +119,14 @@ const EditModal = ({ open, modelMetaId, onCancel, onOk }) => {
       const { success, message, data } = res.data;
       if (success) {
         initModelMeta();
-        setInitialInput(data);
+        const unit = data.billing_unit || 'token';
+        setInitialInput({
+          ...data,
+          billing_unit: unit,
+          input_price: toDisplayPrice(data.input_price, unit),
+          output_price: toDisplayPrice(data.output_price, unit),
+          cache_price: toDisplayPrice(data.cache_price, unit)
+        });
       } else {
         showError(message);
       }
@@ -217,6 +236,27 @@ const EditModal = ({ open, modelMetaId, onCancel, onOk }) => {
                 }}
               /> {inputPrompt.status}
 
+              {/*计量单位*/}
+              <FormControl fullWidth error={Boolean(touched.billing_unit && errors.billing_unit)}
+                           sx={{ ...theme.typography.otherInput }}>
+                <InputLabel htmlFor="billing-unit-label">{inputLabel.billing_unit}</InputLabel>
+                <Select
+                  id="billing-unit-label"
+                  label={inputLabel.billing_unit}
+                  value={values.billing_unit || 'token'}
+                  name="billing_unit"
+                  onBlur={handleBlur}
+                  onChange={handleChange}
+                >
+                  {BILLING_UNITS.map((u) => (
+                    <MenuItem key={u.value} value={u.value}>
+                      {u.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+                <FormHelperText id="helper-tex-billing-unit-label">{inputPrompt.billing_unit}</FormHelperText>
+              </FormControl>
+
               {/*价格单位*/}
               <FormControl fullWidth error={Boolean(touched.price_unit && errors.price_unit)}
                            sx={{ ...theme.typography.otherInput }}>
@@ -239,10 +279,12 @@ const EditModal = ({ open, modelMetaId, onCancel, onOk }) => {
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ ...theme.typography.otherInput }}>
                 {/*输入价格*/}
                 <FormControl fullWidth error={Boolean(touched.input_price && errors.input_price)}>
-                  <InputLabel htmlFor="input-price-label">{inputLabel.input_price}</InputLabel>
+                  <InputLabel htmlFor="input-price-label">
+                    {`${inputLabel.input_price}（每${priceSuffix(values.billing_unit)}）`}
+                  </InputLabel>
                   <OutlinedInput
                     id="input-price-label"
-                    label={inputLabel.input_price}
+                    label={`${inputLabel.input_price}（每${priceSuffix(values.billing_unit)}）`}
                     type="number"
                     value={values.input_price}
                     name="input_price"
@@ -253,16 +295,22 @@ const EditModal = ({ open, modelMetaId, onCancel, onOk }) => {
                   {touched.input_price && errors.input_price ? (
                     <FormHelperText error>{errors.input_price}</FormHelperText>
                   ) : (
-                    <FormHelperText>{inputPrompt.input_price}</FormHelperText>
+                    <FormHelperText>
+                      {values.billing_unit === 'image'
+                        ? '按张计价时该字段不参与计算'
+                        : inputPrompt.input_price}
+                    </FormHelperText>
                   )}
                 </FormControl>
 
                 {/*输出价格*/}
                 <FormControl fullWidth error={Boolean(touched.output_price && errors.output_price)}>
-                  <InputLabel htmlFor="output-price-label">{inputLabel.output_price}</InputLabel>
+                  <InputLabel htmlFor="output-price-label">
+                    {`${inputLabel.output_price}（每${priceSuffix(values.billing_unit)}）`}
+                  </InputLabel>
                   <OutlinedInput
                     id="output-price-label"
-                    label={inputLabel.output_price}
+                    label={`${inputLabel.output_price}（每${priceSuffix(values.billing_unit)}）`}
                     type="number"
                     value={values.output_price}
                     name="output_price"
@@ -279,10 +327,12 @@ const EditModal = ({ open, modelMetaId, onCancel, onOk }) => {
 
                 {/*缓存价格*/}
                 <FormControl fullWidth error={Boolean(touched.cache_price && errors.cache_price)}>
-                  <InputLabel htmlFor="cache-price-label">{inputLabel.cache_price}</InputLabel>
+                  <InputLabel htmlFor="cache-price-label">
+                    {`${inputLabel.cache_price}（每${priceSuffix(values.billing_unit)}）`}
+                  </InputLabel>
                   <OutlinedInput
                     id="cache-price-label"
-                    label={inputLabel.cache_price}
+                    label={`${inputLabel.cache_price}（每${priceSuffix(values.billing_unit)}）`}
                     type="number"
                     value={values.cache_price}
                     name="cache_price"
@@ -294,7 +344,9 @@ const EditModal = ({ open, modelMetaId, onCancel, onOk }) => {
                     <FormHelperText error>{errors.cache_price}</FormHelperText>
                   ) : (
                     <FormHelperText>
-                      {values.cache_price > 0
+                      {values.billing_unit === 'image'
+                        ? '按张计价时该字段不参与计算'
+                        : values.cache_price > 0
                         ? `✓ 已启用缓存折扣：命中缓存的 token 按此价格计费，其余按输入价格`
                         : `⚠ 未配置（= 0）：缓存命中的 token 仍按输入价格收费，不享受折扣`}
                     </FormHelperText>

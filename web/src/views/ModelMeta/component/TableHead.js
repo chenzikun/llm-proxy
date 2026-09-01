@@ -12,6 +12,7 @@ const ModelMetaTableHead = () => {
         <TableCell>输入价格</TableCell>
         <TableCell>输出价格</TableCell>
         <TableCell>缓存价格</TableCell>
+        <TableCell>计量单位</TableCell>
         <TableCell>单位</TableCell>
         <TableCell>操作</TableCell>
       </TableRow>

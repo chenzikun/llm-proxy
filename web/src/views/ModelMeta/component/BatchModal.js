@@ -30,7 +30,8 @@ const BatchModal = ({ open, onCancel, onOk }) => {
       // 检查是否以model开始
       if (!values.content.trim().startsWith('model')) {
         // 自动添加header行
-        values.content = 'model|channel_type|input_price|output_price|cache_price|price_unit\n' + values.content;
+        values.content =
+          'model|channel_type|input_price|output_price|cache_price|price_unit|billing_unit\n' + values.content;
       }
 
       // 发送批量请求
@@ -78,13 +79,16 @@ const BatchModal = ({ open, onCancel, onOk }) => {
             <form noValidate onSubmit={handleSubmit}>
               <Box sx={{ mt: 2, mb: 1 }}>
                 <Typography variant="subtitle2" color="textSecondary">
-                  格式说明：每行一个模型，以竖线 | 分隔，字段顺序：模型名称 | 渠道类型 | 输入价格 | 输出价格 | 缓存价格 | 价格单位
+                  格式说明：每行一个模型，以竖线 | 分隔，字段顺序：模型名称 | 渠道类型 | 输入价格 | 输出价格 | 缓存价格 | 价格单位 | 计量单位
                 </Typography>
                 <Typography variant="caption" color="textSecondary">
-                  价格单位：CNY（人民币，每百万 token）或 USD（美元，每百万 token）；缓存价格填 0 表示未配置
+                  价格单位：CNY（人民币）或 USD（美元）；缓存价格填 0 表示未配置
                 </Typography>
                 <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 0.5 }}>
-                  例如：claude-3-5-sonnet|37|3|15|1.5|USD &nbsp;&nbsp; 或 &nbsp;&nbsp; my-model|37|21.6|108|0|CNY
+                  计量单位：token（每百万 token）/ char（每百万字符，TTS）/ second（每百万秒，语音转写）/ image（每百万张）；留空按 token 处理
+                </Typography>
+                <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 0.5 }}>
+                  例如：claude-3-5-sonnet|37|3|15|1.5|USD|token &nbsp;&nbsp; 或 &nbsp;&nbsp; my-tts|37|0|50|0|CNY|char
                 </Typography>
               </Box>
 
@@ -99,7 +103,7 @@ const BatchModal = ({ open, onCancel, onOk }) => {
                   onBlur={handleBlur}
                   onChange={handleChange}
                   error={Boolean(touched.content && errors.content)}
-                  placeholder="模型名称|渠道类型|输入价格|输出价格|缓存价格|价格单位"
+                  placeholder="模型名称|渠道类型|输入价格|输出价格|缓存价格|价格单位|计量单位"
                 />
                 {touched.content && errors.content && (
                   <FormHelperText error id="helper-text-content">

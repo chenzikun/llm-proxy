@@ -110,9 +110,10 @@ export default function ModelMetaTableRow({
         </TableCell>
 
         <TableCell>{timestamp2string(item.created_time)}</TableCell>
-        <TableCell>{renderPrice(item.input_price, item.price_unit)}</TableCell>
-        <TableCell>{renderPrice(item.output_price, item.price_unit)}</TableCell>
-        <TableCell>{renderPrice(item.cache_price, item.price_unit)}</TableCell>
+        <TableCell>{renderPrice(item.input_price, item.price_unit, item.billing_unit)}</TableCell>
+        <TableCell>{renderPrice(item.output_price, item.price_unit, item.billing_unit)}</TableCell>
+        <TableCell>{renderPrice(item.cache_price, item.price_unit, item.billing_unit)}</TableCell>
+        <TableCell>{item.billing_unit || 'token'}</TableCell>
         <TableCell>{item.price_unit === 'USD' ? '$ USD' : '¥ CNY'}</TableCell>
 
 
@@ -175,8 +176,24 @@ ModelMetaTableRow.propTypes = {
   setModeMetalId: PropTypes.func
 };
 
-function renderPrice(price, priceUnit) {
+function renderPrice(price, priceUnit, billingUnit) {
   const symbol = priceUnit === 'USD' ? '$' : '¥';
   const val = typeof price === 'number' ? price : 0;
-  return <span>{symbol}{val.toFixed(4)}/1K</span>;
+  // 按张计价时存储的是每百万张，换算回每张展示
+  if (billingUnit === 'image') {
+    return (
+      <span>
+        {symbol}
+        {(val / 1000000).toFixed(6)}/张
+      </span>
+    );
+  }
+  const suffix = billingUnit === 'char' ? '/1M字符' : billingUnit === 'second' ? '/1M秒' : '/1M token';
+  return (
+    <span>
+      {symbol}
+      {val.toFixed(4)}
+      {suffix}
+    </span>
+  );
 }
