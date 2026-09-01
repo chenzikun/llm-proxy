@@ -1,7 +1,7 @@
 package config
 
 import (
-	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -189,19 +189,24 @@ var RedisMode = env.String("REDIS_MODE", "cluster")
 var RedisServer = os.Getenv("REDIS_SERVER")
 var RedisPassword = os.Getenv("REDIS_PASSWORD")
 
-var MQServerAddr = env.String("RABBITMQ310_SERVER", "10.240.3.153:5672")
-var MQVhost = env.String("RABBITMQ_VHOST", "test")
-var MQUsername = env.String("RABBITMQ_USERNAME", "admin")
-var MQPassword = env.String("RABBITMQ_PASSWORD", "admin")
-
-// var MQUrl = fmt.Sprintf("amqp://%s:%s@%s/%s", MQUsername, MQPassword, MQServerAddr, MQVhost)
+// MQServerAddr RabbitMQ 地址（host:port），留空则不启用会话数据回流上报。
+// RABBITMQ310_SERVER 为旧变量名，仅作兼容保留。
+var MQServerAddr = env.String("RABBITMQ_SERVER", env.String("RABBITMQ310_SERVER", ""))
+var MQVhost = env.String("RABBITMQ_VHOST", "/")
+var MQUsername = env.String("RABBITMQ_USERNAME", "guest")
+var MQPassword = env.String("RABBITMQ_PASSWORD", "guest")
 
 func GetMQUrl() string {
 	if MQServerAddr == "" {
 		return ""
 	}
-	return fmt.Sprintf("amqp://%s:%s@%s/%s", MQUsername, MQPassword, MQServerAddr, MQVhost)
+	u := url.URL{
+		Scheme: "amqp",
+		User:   url.UserPassword(MQUsername, MQPassword),
+		Host:   MQServerAddr,
+		Path:   "/" + strings.TrimPrefix(MQVhost, "/"),
+	}
+	return u.String()
 }
 
-// var MQQueueName = env.String("RABBITMQ_QUEUE_NAME", "LLM_AI_SYNC_DATA")
-const MQQueueName = "LLM_PROXY_QUEUE"
+var MQQueueName = env.String("RABBITMQ_QUEUE_NAME", "LLM_PROXY_QUEUE")

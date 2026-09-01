@@ -21,6 +21,12 @@ services:
       - REDIS_SERVER=${REDIS_SERVER:-}
       # PostgreSQL（可选，PG_HOST 留空则使用 SQLite）
       - SQL_DSN=${PG_HOST:+postgres://${PG_USER:-llm_proxy}:${PG_PASSWORD}@${PG_HOST}:${PG_PORT:-5432}/${PG_DB:-llm_proxy}?sslmode=disable}
+      # RabbitMQ 会话数据回流（可选，RABBITMQ_SERVER 留空则不上报）
+      - RABBITMQ_SERVER=${RABBITMQ_SERVER:-}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      - RABBITMQ_USERNAME=${RABBITMQ_USERNAME:-}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-}
+      - RABBITMQ_QUEUE_NAME=${RABBITMQ_QUEUE_NAME:-LLM_PROXY_QUEUE}
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/status | grep -o '\"success\":true' || exit 1"]
       interval: 30s
