@@ -11,7 +11,6 @@ import (
 	"github.com/zicorn/llm-proxy/pkg/common/config"
 	"github.com/zicorn/llm-proxy/pkg/common/image"
 	"github.com/zicorn/llm-proxy/pkg/common/logger"
-	billingratio "github.com/zicorn/llm-proxy/internal/relay/billing/ratio"
 	"github.com/zicorn/llm-proxy/internal/relay/entity"
 	"github.com/zicorn/llm-proxy/internal/relay/relaymode"
 )
@@ -27,25 +26,6 @@ func InitTokenEncoders() {
 		logger.FatalLog(fmt.Sprintf("failed to get gpt-3.5-turbo token encoder: %s", err.Error()))
 	}
 	defaultTokenEncoder = gpt35TokenEncoder
-	gpt4oTokenEncoder, err := tiktoken.EncodingForModel("gpt-4o")
-	if err != nil {
-		logger.FatalLog(fmt.Sprintf("failed to get gpt-4o token encoder: %s", err.Error()))
-	}
-	gpt4TokenEncoder, err := tiktoken.EncodingForModel("gpt-4")
-	if err != nil {
-		logger.FatalLog(fmt.Sprintf("failed to get gpt-4 token encoder: %s", err.Error()))
-	}
-	for model := range billingratio.ModelRatio {
-		if strings.HasPrefix(model, "gpt-3.5") {
-			tokenEncoderMap[model] = gpt35TokenEncoder
-		} else if strings.HasPrefix(model, "gpt-4o") {
-			tokenEncoderMap[model] = gpt4oTokenEncoder
-		} else if strings.HasPrefix(model, "gpt-4") {
-			tokenEncoderMap[model] = gpt4TokenEncoder
-		} else {
-			tokenEncoderMap[model] = nil
-		}
-	}
 	logger.SysLog("token encoders initialized")
 }
 
