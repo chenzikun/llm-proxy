@@ -23,8 +23,11 @@ func getModelPricesInCNY(modelMeta *model.ModelMeta) (inputPrice, outputPrice, c
 	return modelMeta.InputPrice * rate, modelMeta.OutputPrice * rate, modelMeta.CachePrice * rate
 }
 
-// tokenQuotaRatio 根据 CNY 单价（每百万 token）和分组倍率计算每 token 的额度消耗
-func tokenQuotaRatio(priceCNYPerM float64, groupRatio float64) float64 {
+// unitQuotaRatio 根据 CNY 单价（每百万计量单位）和分组倍率计算每个计量单位的额度消耗。
+//
+// 计量单位由 model_meta.billing_unit 决定：token / char / second / image。
+// 本函数与单位无关，只做"单价 → 每单位额度"的换算。
+func unitQuotaRatio(priceCNYPerM float64, groupRatio float64) float64 {
 	return priceCNYPerM * config.QuotaPerUnit / 1000000.0 * groupRatio
 }
 
@@ -46,7 +49,7 @@ func PreConsumeQuota(ctx context.Context, textRequest *entity.GeneralOpenAIReque
 	}
 	inputPriceCNY, _, _ := getModelPricesInCNY(modelMeta)
 	groupRatio := billingratio.GetGroupRatio(meta.Group)
-	inputRatio := tokenQuotaRatio(inputPriceCNY, groupRatio)
+	inputRatio := unitQuotaRatio(inputPriceCNY, groupRatio)
 
 	promptTokens := PredictChatPromptTokenCount(textRequest, meta.Mode)
 	meta.PromptTokens = promptTokens
@@ -73,9 +76,9 @@ func PostConsumeQuota(ctx context.Context, usage *entity.Usage, meta *Meta, preC
 	inputPriceCNY, outputPriceCNY, cachePriceCNY := getModelPricesInCNY(modelMeta)
 	groupRatio := billingratio.GetGroupRatio(meta.Group)
 
-	inputRatio := tokenQuotaRatio(inputPriceCNY, groupRatio)
-	outputRatio := tokenQuotaRatio(outputPriceCNY, groupRatio)
-	cacheRatio := tokenQuotaRatio(cachePriceCNY, groupRatio)
+	inputRatio := unitQuotaRatio(inputPriceCNY, groupRatio)
+	outputRatio := unitQuotaRatio(outputPriceCNY, groupRatio)
+	cacheRatio := unitQuotaRatio(cachePriceCNY, groupRatio)
 
 	promptTokens := usage.PromptTokens
 	completionTokens := usage.CompletionTokens
@@ -130,7 +133,7 @@ func PreConsumeQuotaForAudio(ctx context.Context, input string, meta *Meta) (int
 	}
 	inputPriceCNY, _, _ := getModelPricesInCNY(modelMeta)
 	groupRatio := billingratio.GetGroupRatio(meta.Group)
-	inputRatio := tokenQuotaRatio(inputPriceCNY, groupRatio)
+	inputRatio := unitQuotaRatio(inputPriceCNY, groupRatio)
 
 	promptTokens := PredictAudioPromptTokenCount(input, meta.Mode)
 	preConsumedQuota := getPreConsumedQuota(0, promptTokens, inputRatio)
@@ -154,7 +157,7 @@ func PreConsumeQuotaByTokens(ctx context.Context, promptTokens int, meta *Meta) 
 	}
 	inputPriceCNY, _, _ := getModelPricesInCNY(modelMeta)
 	groupRatio := billingratio.GetGroupRatio(meta.Group)
-	inputRatio := tokenQuotaRatio(inputPriceCNY, groupRatio)
+	inputRatio := unitQuotaRatio(inputPriceCNY, groupRatio)
 
 	meta.PromptTokens = promptTokens
 	return PreCost(ctx, meta, getPreConsumedQuota(0, promptTokens, inputRatio))
