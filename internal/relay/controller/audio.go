@@ -222,7 +222,6 @@ func RelayAudioHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 		apiKey := c.Request.Header.Get("Authorization")
 		apiKey = strings.TrimPrefix(apiKey, "Bearer ")
 		req.Header.Set("api-key", apiKey)
-		req.ContentLength = c.Request.ContentLength
 	} else {
 		req.Header.Set("Authorization", c.Request.Header.Get("Authorization"))
 	}
