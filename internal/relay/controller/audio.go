@@ -1,28 +1,23 @@
 package controller
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/zicorn/llm-proxy/pkg/common"
 	"github.com/zicorn/llm-proxy/pkg/common/client"
-	"github.com/zicorn/llm-proxy/pkg/common/config"
 	"github.com/zicorn/llm-proxy/pkg/common/ctxkey"
 	"github.com/zicorn/llm-proxy/pkg/common/logger"
 	"github.com/zicorn/llm-proxy/internal/repo"
 	"github.com/zicorn/llm-proxy/internal/objects"
 	"github.com/zicorn/llm-proxy/internal/relay/adaptor/openai"
-	"github.com/zicorn/llm-proxy/internal/relay/billing"
-	billingratio "github.com/zicorn/llm-proxy/internal/relay/billing/ratio"
 	"github.com/zicorn/llm-proxy/internal/relay/channeltype"
 	"github.com/zicorn/llm-proxy/internal/relay/relaymode"
 )
@@ -30,65 +25,19 @@ import (
 func RelayAudioHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCode {
 	ctx := c.Request.Context()
 	meta := objects.GetRequestMeta(c)
-	audioModel := config.DefaultAudioModel
+	// 计费用 ActualModelName 查 model_meta，发给上游的 model 字段必须是同一个值，
+	// 否则会出现"按 A 计费、实际调用 B"。GetRequestMeta 不设 ActualModelName，需在此补。
+	meta.ActualModelName, _ = objects.ResolveModelName(meta.OriginModelName, meta.ModelMapping)
+	audioModel := meta.ActualModelName
 
 	tokenId := c.GetInt(ctxkey.TokenId)
 	channelType := c.GetInt(ctxkey.ChannelType)
-	//channelId := c.GetInt(ctxkey.ChannelId)
-	userId := c.GetInt(ctxkey.UserId)
-	group := c.GetString(ctxkey.Group)
-	//tokenName := c.GetString(ctxkey.TokenName)
 
-	var ttsRequest openai.TextToSpeechRequest
-	if relayMode == relaymode.AudioSpeech {
-		// Read JSON
-		err := common.UnmarshalBodyReusable(c, &ttsRequest)
-		// Check if JSON is valid
-		if err != nil {
-			return objects.ErrorWrapper(err, "invalid_json", http.StatusBadRequest)
-		}
-		audioModel = ttsRequest.Model
-		// Check if text is too long 4096
-		if len(ttsRequest.Input) > 4096 {
-			return objects.ErrorWrapper(errors.New("input is too long (over 4096 characters)"), "text_too_long", http.StatusBadRequest)
-		}
+	preConsumedQuota, bizErr := objects.PreConsumeTranscriptionQuota(ctx, meta)
+	if bizErr != nil {
+		return bizErr
 	}
 
-	modelRatio := billingratio.GetModelRatio(audioModel, channelType)
-	groupRatio := billingratio.GetGroupRatio(group)
-	ratio := modelRatio * groupRatio
-	var quota, preConsumedQuota int64
-	switch relayMode {
-	case relaymode.AudioSpeech:
-		preConsumedQuota = int64(float64(len(ttsRequest.Input)) * ratio)
-		quota = preConsumedQuota
-	default:
-		preConsumedQuota = int64(float64(config.PreConsumedQuota) * ratio)
-	}
-	userQuota, err := model.CacheGetUserQuota(ctx, userId)
-	if err != nil {
-		return objects.ErrorWrapper(err, "get_user_quota_failed", http.StatusInternalServerError)
-	}
-
-	// Check if user quota is enough
-	if userQuota-preConsumedQuota < 0 {
-		return objects.ErrorWrapper(errors.New("user quota is not enough"), "insufficient_user_quota", http.StatusForbidden)
-	}
-	err = model.CacheDecreaseUserQuota(userId, preConsumedQuota)
-	if err != nil {
-		return objects.ErrorWrapper(err, "decrease_user_quota_failed", http.StatusInternalServerError)
-	}
-	if userQuota > 100*preConsumedQuota {
-		// in this case, we do not pre-consume quota
-		// because the user has enough quota
-		preConsumedQuota = 0
-	}
-	if preConsumedQuota > 0 {
-		err := model.PreConsumeTokenQuota(tokenId, preConsumedQuota)
-		if err != nil {
-			return objects.ErrorWrapper(err, "pre_consume_token_quota_failed", http.StatusForbidden)
-		}
-	}
 	succeed := false
 	defer func() {
 		if succeed {
@@ -107,19 +56,6 @@ func RelayAudioHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 			}(c.Request.Context())
 		}
 	}()
-
-	// map model name
-	modelMapping := c.GetString(ctxkey.ModelMapping)
-	if modelMapping != "" {
-		modelMap := make(map[string]string)
-		err := json.Unmarshal([]byte(modelMapping), &modelMap)
-		if err != nil {
-			return objects.ErrorWrapper(err, "unmarshal_model_mapping_failed", http.StatusInternalServerError)
-		}
-		if modelMap[audioModel] != "" {
-			audioModel = modelMap[audioModel]
-		}
-	}
 
 	baseURL := channeltype.ChannelBaseURLs[channelType]
 	requestURL := c.Request.URL.String()
@@ -242,56 +178,54 @@ func RelayAudioHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 		return objects.ErrorWrapper(err, "close_request_body_failed", http.StatusInternalServerError)
 	}
 
-	if relayMode != relaymode.AudioSpeech {
-		responseBody, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return objects.ErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
-		}
-		err = resp.Body.Close()
-		if err != nil {
-			return objects.ErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError)
-		}
-
-		var openAIErr openai.SlimTextResponse
-		if err = json.Unmarshal(responseBody, &openAIErr); err == nil {
-			if openAIErr.Error.Message != "" {
-				return objects.ErrorWrapper(fmt.Errorf("type %s, code %v, message %s", openAIErr.Error.Type, openAIErr.Error.Code, openAIErr.Error.Message), "request_error", http.StatusInternalServerError)
-			}
-		}
-
-		var text string
-		switch clientResponseFormat {
-		case "json":
-			text, err = getTextFromJSON(responseBody)
-		case "text":
-			text, err = getTextFromText(responseBody)
-		case "srt":
-			text, err = getTextFromSRT(responseBody)
-		case "verbose_json":
-			text, err = getTextFromVerboseJSON(responseBody)
-		case "vtt":
-			text, err = getTextFromVTT(responseBody)
-		default:
-			return objects.ErrorWrapper(errors.New("unexpected_response_format"), "unexpected_response_format", http.StatusInternalServerError)
-		}
-		if err != nil {
-			return objects.ErrorWrapper(err, "get_text_from_body_err", http.StatusInternalServerError)
-		}
-		quota = int64(objects.CountTokenText(text, audioModel))
-		resp.Body = io.NopCloser(bytes.NewBuffer(responseBody))
-	}
+	// 状态码检查必须在读取 body 之前：RelayErrorHandler 需要未被消费的 resp.Body，
+	// 且上游返回 HTML / 纯文本错误时不应被后面的 JSON 解析失败掩盖成 500。
 	if resp.StatusCode != http.StatusOK {
 		return RelayErrorHandler(resp)
 	}
+
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return objects.ErrorWrapper(err, "read_response_body_failed", http.StatusInternalServerError)
+	}
+	err = resp.Body.Close()
+	if err != nil {
+		return objects.ErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError)
+	}
+
+	// 200 但 body 内含 error 字段的上游
+	var openAIErr openai.SlimTextResponse
+	if err = json.Unmarshal(responseBody, &openAIErr); err == nil {
+		if openAIErr.Error.Message != "" {
+			return objects.ErrorWrapper(fmt.Errorf("type %s, code %v, message %s", openAIErr.Error.Type, openAIErr.Error.Code, openAIErr.Error.Message), "request_error", http.StatusInternalServerError)
+		}
+	}
+
+	// 上游固定按 verbose_json 返回：先取 duration 用于按秒计费，
+	// 再降级成客户端原本请求的格式写回 resp.Body，供尾部统一拷贝。
+	var verbose openai.WhisperVerboseJSONResponse
+	if err = json.Unmarshal(responseBody, &verbose); err != nil {
+		return objects.ErrorWrapper(err, "unmarshal_verbose_json_failed", http.StatusInternalServerError)
+	}
+	audioDuration := verbose.Duration
+
+	convertedBody, contentType, err := convertVerboseJSON(&verbose, clientResponseFormat)
+	if err != nil {
+		return objects.ErrorWrapper(err, "convert_response_format_failed", http.StatusInternalServerError)
+	}
+	resp.Body = io.NopCloser(bytes.NewBufferString(convertedBody))
+
 	succeed = true
-	quotaDelta := quota - preConsumedQuota
 	defer func(ctx context.Context) {
-		go billing.PostConsumeQuota(ctx, meta.TokenId, quotaDelta, quota, meta.UserId, meta.ChannelId, modelRatio, groupRatio, audioModel, meta.TokenName, meta.SessionId)
+		go objects.PostConsumeTranscriptionQuota(ctx, meta, audioDuration, preConsumedQuota)
 	}(c.Request.Context())
 
 	for k, v := range resp.Header {
 		c.Writer.Header().Set(k, v[0])
 	}
+	// 上游返回的是 verbose_json 的类型与长度，必须按转换后的实际内容覆盖
+	c.Writer.Header().Set("Content-Type", contentType)
+	c.Writer.Header().Set("Content-Length", strconv.Itoa(len(convertedBody)))
 	c.Writer.WriteHeader(resp.StatusCode)
 
 	_, err = io.Copy(c.Writer, resp.Body)
@@ -303,49 +237,4 @@ func RelayAudioHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 		return objects.ErrorWrapper(err, "close_response_body_failed", http.StatusInternalServerError)
 	}
 	return nil
-}
-
-func getTextFromVTT(body []byte) (string, error) {
-	return getTextFromSRT(body)
-}
-
-func getTextFromVerboseJSON(body []byte) (string, error) {
-	var whisperResponse openai.WhisperVerboseJSONResponse
-	if err := json.Unmarshal(body, &whisperResponse); err != nil {
-		return "", fmt.Errorf("unmarshal_response_body_failed err :%w", err)
-	}
-	return whisperResponse.Text, nil
-}
-
-func getTextFromSRT(body []byte) (string, error) {
-	scanner := bufio.NewScanner(strings.NewReader(string(body)))
-	var builder strings.Builder
-	var textLine bool
-	for scanner.Scan() {
-		line := scanner.Text()
-		if textLine {
-			builder.WriteString(line)
-			textLine = false
-			continue
-		} else if strings.Contains(line, "-->") {
-			textLine = true
-			continue
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		return "", err
-	}
-	return builder.String(), nil
-}
-
-func getTextFromText(body []byte) (string, error) {
-	return strings.TrimSuffix(string(body), "\n"), nil
-}
-
-func getTextFromJSON(body []byte) (string, error) {
-	var whisperResponse openai.WhisperJSONResponse
-	if err := json.Unmarshal(body, &whisperResponse); err != nil {
-		return "", fmt.Errorf("unmarshal_response_body_failed err :%w", err)
-	}
-	return whisperResponse.Text, nil
 }
