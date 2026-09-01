@@ -141,7 +141,7 @@ func RelayAudioHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 
 	requestBody := &bytes.Buffer{}
 
-	if relayMode == relaymode.AudioTranscription {
+	if relayMode == relaymode.AudioTranscription || relayMode == relaymode.AudioTranslation {
 		file, err := c.FormFile("file")
 		if err != nil {
 			return objects.ErrorWrapper(err, "get_form_file_failed", http.StatusBadRequest)
@@ -173,6 +173,27 @@ func RelayAudioHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 			return objects.ErrorWrapper(err, "write_field_failed", http.StatusInternalServerError)
 		}
 
+		// 固定以 verbose_json 请求上游：只有该格式的响应带 duration 字段，
+		// 而按秒计费必须知道时长。客户端要的格式在响应阶段再转换。
+		err = writer.WriteField("response_format", "verbose_json")
+		if err != nil {
+			return objects.ErrorWrapper(err, "write_field_failed", http.StatusInternalServerError)
+		}
+
+		// 这些字段此前被整体丢弃，导致 language 等参数失效、识别质量下降
+		fields := []string{"prompt", "temperature"}
+		if relayMode == relaymode.AudioTranscription {
+			// 翻译端点固定输出英文，不接受 language
+			fields = append(fields, "language")
+		}
+		for _, field := range fields {
+			if v := c.PostForm(field); v != "" {
+				if err := writer.WriteField(field, v); err != nil {
+					return objects.ErrorWrapper(err, "write_field_failed", http.StatusInternalServerError)
+				}
+			}
+		}
+
 		err = writer.Close()
 		if err != nil {
 			return objects.ErrorWrapper(err, "close_multipart_writer_failed", http.StatusInternalServerError)
@@ -188,7 +209,8 @@ func RelayAudioHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 	}
 
 	c.Request.Body = io.NopCloser(bytes.NewBuffer(requestBody.Bytes()))
-	responseFormat := c.DefaultPostForm("response_format", "json")
+	// 客户端要求的格式，与发给上游的 verbose_json 无关
+	clientResponseFormat := c.DefaultPostForm("response_format", "json")
 
 	req, err := http.NewRequest(c.Request.Method, fullRequestURL, requestBody)
 	if err != nil {
@@ -239,7 +261,7 @@ func RelayAudioHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 		}
 
 		var text string
-		switch responseFormat {
+		switch clientResponseFormat {
 		case "json":
 			text, err = getTextFromJSON(responseBody)
 		case "text":
