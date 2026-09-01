@@ -35,38 +35,29 @@ func measuredQuota(priceCNYPerM, groupRatio, units float64) int64 {
 	}
 	ratio := unitQuotaRatio(priceCNYPerM, groupRatio)
 	quota := int64(math.Ceil(units * ratio))
-	// 单价不为 0 却因取整得到 0 时按 1 额度收，避免小额请求完全免费
+	// math.Ceil 对任意正数至少得 1，常规路径不会触发本 guard；仅在 units×ratio 恰好为 0
+	// 或负数的边界上兜底，防止单价非零却算出零配额。
 	if ratio != 0 && quota <= 0 {
 		quota = 1
 	}
 	return quota
 }
 
-// imagePricing 取图片模型的每百万张价格与分组倍率。
-func imagePricing(meta *Meta) (outputPriceCNY, groupRatio float64, err error) {
+// modelPricing 取模型的 ¥ 单价与分组倍率。计量单位语义由 model_meta.billing_unit 声明。
+func modelPricing(meta *Meta) (inputPriceCNY, outputPriceCNY, groupRatio float64, err error) {
 	modelMeta, err := model.GetModelMetaByModel(meta.ActualModelName)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
-	_, outputPriceCNY, _ = getModelPricesInCNY(modelMeta)
-	return outputPriceCNY, billingratio.GetGroupRatio(meta.Group), nil
-}
-
-// audioPricing 取音频模型的每百万秒价格与分组倍率。
-func audioPricing(meta *Meta) (inputPriceCNY, groupRatio float64, err error) {
-	modelMeta, err := model.GetModelMetaByModel(meta.ActualModelName)
-	if err != nil {
-		return 0, 0, err
-	}
-	inputPriceCNY, _, _ = getModelPricesInCNY(modelMeta)
-	return inputPriceCNY, billingratio.GetGroupRatio(meta.Group), nil
+	inputPriceCNY, outputPriceCNY, _ = getModelPricesInCNY(modelMeta)
+	return inputPriceCNY, outputPriceCNY, billingratio.GetGroupRatio(meta.Group), nil
 }
 
 // PreConsumeImageQuota 预扣图片生成配额。
 //
 // 张数与尺寸在请求体中已知，因此预扣值等于最终配额，结算时差额为 0。
 func PreConsumeImageQuota(ctx context.Context, meta *Meta, n int, sizeRatio float64) (int64, *ErrorWithStatusCode) {
-	outputPriceCNY, groupRatio, err := imagePricing(meta)
+	_, outputPriceCNY, groupRatio, err := modelPricing(meta)
 	if err != nil {
 		return 0, ErrorWrapper(err, "get_model_meta_failed", http.StatusInternalServerError)
 	}
@@ -77,9 +68,9 @@ func PreConsumeImageQuota(ctx context.Context, meta *Meta, n int, sizeRatio floa
 //
 // 单价为 0 时仍会写消费日志，否则图片请求在日志中不可见、无法审计。
 func PostConsumeImageQuota(ctx context.Context, meta *Meta, n int, sizeRatio float64, preConsumedQuota int64) {
-	outputPriceCNY, groupRatio, err := imagePricing(meta)
+	_, outputPriceCNY, groupRatio, err := modelPricing(meta)
 	if err != nil {
-		logger.Error(ctx, "failed to get model meta for image billing: "+err.Error())
+		logger.Error(ctx, "获取图片模型元数据失败: "+err.Error())
 		return
 	}
 	quota := measuredQuota(outputPriceCNY, groupRatio, float64(n)*sizeRatio)
@@ -92,7 +83,7 @@ func PostConsumeImageQuota(ctx context.Context, meta *Meta, n int, sizeRatio flo
 
 // PreConsumeTranscriptionQuota 按保底秒数预扣转写配额。
 func PreConsumeTranscriptionQuota(ctx context.Context, meta *Meta) (int64, *ErrorWithStatusCode) {
-	inputPriceCNY, groupRatio, err := audioPricing(meta)
+	inputPriceCNY, _, groupRatio, err := modelPricing(meta)
 	if err != nil {
 		return 0, ErrorWrapper(err, "get_model_meta_failed", http.StatusInternalServerError)
 	}
@@ -101,9 +92,9 @@ func PreConsumeTranscriptionQuota(ctx context.Context, meta *Meta) (int64, *Erro
 
 // PostConsumeTranscriptionQuota 按上游返回的真实时长结算转写配额。
 func PostConsumeTranscriptionQuota(ctx context.Context, meta *Meta, durationSeconds float64, preConsumedQuota int64) {
-	inputPriceCNY, groupRatio, err := audioPricing(meta)
+	inputPriceCNY, _, groupRatio, err := modelPricing(meta)
 	if err != nil {
-		logger.Error(ctx, "failed to get model meta for audio billing: "+err.Error())
+		logger.Error(ctx, "获取音频模型元数据失败: "+err.Error())
 		return
 	}
 	seconds := billedSeconds(durationSeconds)

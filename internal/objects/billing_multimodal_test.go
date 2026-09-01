@@ -80,6 +80,8 @@ func TestBilledSeconds(t *testing.T) {
 
 func TestUSDConversionAppliesToImage(t *testing.T) {
 	// 以 USD 计价的每张价格需按汇率换算成 ¥
+	origRate := config.ExchangeRate
+	t.Cleanup(func() { config.ExchangeRate = origRate })
 	config.ExchangeRate = 7.2
 	meta := &model.ModelMeta{OutputPrice: 100000, PriceUnit: "USD"}
 	_, outputCNY, _ := getModelPricesInCNY(meta)
