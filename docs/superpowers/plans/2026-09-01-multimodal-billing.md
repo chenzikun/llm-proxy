@@ -248,40 +248,49 @@ func TestUnitQuotaRatio(t *testing.T) {
 	}
 }
 
-func TestComputeImageQuota(t *testing.T) {
-	// 每张 ¥0.3 => output_price = 300000（¥/1M 张）
-	// 2 张，尺寸系数 2.0 => 0.3 × 2 × 2 = ¥1.2 => 1_200_000 额度
-	quota := computeImageQuota(300000, 1.0, 2, 2.0)
-	if quota != 1_200_000 {
-		t.Errorf("computeImageQuota = %d, 期望 1200000", quota)
+func TestMeasuredQuota(t *testing.T) {
+	// 四个模态共用同一个算法，差别只在传入的计量数怎么算出来。
+	// 图片：每张 ¥0.3 => 300000（¥/1M 张）；2 张 × 尺寸系数 2.0 => ¥1.2 => 1200000 额度
+	if q := measuredQuota(300000, 1.0, 2*2.0); q != 1_200_000 {
+		t.Errorf("图片 quota = %d, 期望 1200000", q)
+	}
+	// 转写：¥720/1M 秒 × 60 秒 => 43200 额度
+	if q := measuredQuota(720, 1.0, 60); q != 43200 {
+		t.Errorf("转写 quota = %d, 期望 43200", q)
+	}
+	// 微调：¥3/1M token × (3 epochs × 100000 tokens) => 900000 额度
+	if q := measuredQuota(3, 1.0, 3*100000); q != 900_000 {
+		t.Errorf("微调 quota = %d, 期望 900000", q)
+	}
+	// 分组倍率参与计算
+	if q := measuredQuota(720, 0.5, 60); q != 21600 {
+		t.Errorf("分组倍率 0.5 时 quota = %d, 期望 21600", q)
 	}
 	// 单价为 0 时不收费
-	if q := computeImageQuota(0, 1.0, 3, 1.0); q != 0 {
+	if q := measuredQuota(0, 1.0, 100); q != 0 {
 		t.Errorf("单价为 0 时 quota = %d, 期望 0", q)
 	}
+	// 计量数为 0 时不收费
+	if q := measuredQuota(720, 1.0, 0); q != 0 {
+		t.Errorf("计量数为 0 时 quota = %d, 期望 0", q)
+	}
 	// 单价极小时至少收 1 额度，不能因取整而免费
-	if q := computeImageQuota(0.0001, 1.0, 1, 1.0); q != 1 {
+	if q := measuredQuota(0.0001, 1.0, 1); q != 1 {
 		t.Errorf("极小单价 quota = %d, 期望 1", q)
 	}
 }
 
-func TestComputeTranscriptionQuota(t *testing.T) {
-	// ¥720/1M 秒，60 秒 => 720 × 60 = 43200 额度
-	if q := computeTranscriptionQuota(720, 1.0, 60); q != 43200 {
-		t.Errorf("computeTranscriptionQuota = %d, 期望 43200", q)
-	}
-	// 秒数向上取整：0.4s -> 1s，1.0s -> 1s，1.1s -> 2s
+func TestTranscriptionSecondsRounding(t *testing.T) {
+	// 秒数向上取整后再计费：0.4s -> 1s，1.0s -> 1s，1.1s -> 2s
 	cases := []struct {
 		seconds float64
 		want    int64
 	}{{0.4, 720}, {1.0, 720}, {1.1, 1440}}
 	for _, c := range cases {
-		if q := computeTranscriptionQuota(720, 1.0, billedSeconds(c.seconds)); q != c.want {
-			t.Errorf("%.1fs 的 quota = %d, 期望 %d", c.seconds, q, c.want)
+		got := measuredQuota(720, 1.0, float64(billedSeconds(c.seconds)))
+		if got != c.want {
+			t.Errorf("%.1fs 的 quota = %d, 期望 %d", c.seconds, got, c.want)
 		}
-	}
-	if q := computeTranscriptionQuota(0, 1.0, 60); q != 0 {
-		t.Errorf("单价为 0 时 quota = %d, 期望 0", q)
 	}
 }
 
@@ -310,8 +319,8 @@ func TestUSDConversionAppliesToImage(t *testing.T) {
 
 - [ ] **Step 2: 运行测试确认失败**
 
-Run: `go test ./internal/objects/ -run 'TestUnitQuotaRatio|TestComputeImageQuota|TestComputeTranscriptionQuota|TestBilledSeconds' -v`
-Expected: FAIL，编译错误 `undefined: unitQuotaRatio`、`undefined: computeImageQuota`
+Run: `go test ./internal/objects/ -run 'TestUnitQuotaRatio|TestMeasuredQuota|TestTranscriptionSecondsRounding|TestBilledSeconds' -v`
+Expected: FAIL，编译错误 `undefined: unitQuotaRatio`、`undefined: measuredQuota`
 
 - [ ] **Step 3: 重命名 tokenQuotaRatio**
 
@@ -361,24 +370,18 @@ func billedSeconds(duration float64) int64 {
 	return int64(math.Ceil(duration))
 }
 
-// computeImageQuota 计算按张计价的图片配额。
+// measuredQuota 按"计量数 × 每单位额度"计算配额，是所有模态共用的唯一算法。
 //
-// sizeRatio 是尺寸与画质的相对系数（1024x1024 为基准 1.0），由调用方从
-// ImageSizeRatios 取得；outputPriceCNY 是每百万张的 ¥ 价格。
-func computeImageQuota(outputPriceCNY, groupRatio float64, n int, sizeRatio float64) int64 {
-	ratio := unitQuotaRatio(outputPriceCNY, groupRatio)
-	quota := int64(math.Ceil(float64(n) * sizeRatio * ratio))
-	if ratio != 0 && quota <= 0 && n > 0 {
-		quota = 1
+// units 是该模态的计量数：图片传 张数 × 尺寸系数，转写传取整后的秒数，
+// 微调传 epochs × tokens。单位语义由 model_meta.billing_unit 声明，本函数不关心。
+func measuredQuota(priceCNYPerM, groupRatio, units float64) int64 {
+	if units <= 0 {
+		return 0
 	}
-	return quota
-}
-
-// computeTranscriptionQuota 计算按秒计价的转写配额。
-func computeTranscriptionQuota(inputPriceCNY, groupRatio float64, seconds int64) int64 {
-	ratio := unitQuotaRatio(inputPriceCNY, groupRatio)
-	quota := int64(math.Ceil(float64(seconds) * ratio))
-	if ratio != 0 && quota <= 0 && seconds > 0 {
+	ratio := unitQuotaRatio(priceCNYPerM, groupRatio)
+	quota := int64(math.Ceil(units * ratio))
+	// 单价不为 0 却因取整得到 0 时按 1 额度收，避免小额请求完全免费
+	if ratio != 0 && quota <= 0 {
 		quota = 1
 	}
 	return quota
@@ -412,7 +415,7 @@ func PreConsumeImageQuota(ctx context.Context, meta *Meta, n int, sizeRatio floa
 	if err != nil {
 		return 0, ErrorWrapper(err, "get_model_meta_failed", http.StatusInternalServerError)
 	}
-	return PreCost(ctx, meta, computeImageQuota(outputPriceCNY, groupRatio, n, sizeRatio))
+	return PreCost(ctx, meta, measuredQuota(outputPriceCNY, groupRatio, float64(n)*sizeRatio))
 }
 
 // PostConsumeImageQuota 结算图片生成配额。
@@ -424,7 +427,7 @@ func PostConsumeImageQuota(ctx context.Context, meta *Meta, n int, sizeRatio flo
 		logger.Error(ctx, "failed to get model meta for image billing: "+err.Error())
 		return
 	}
-	quota := computeImageQuota(outputPriceCNY, groupRatio, n, sizeRatio)
+	quota := measuredQuota(outputPriceCNY, groupRatio, float64(n)*sizeRatio)
 	logContent := fmt.Sprintf("图片 ¥%.6f/张，尺寸系数 %.2f，分组倍率 %.2f（%d 张）",
 		outputPriceCNY/1000000.0, sizeRatio, groupRatio, n)
 	if err := PostCost(ctx, meta, preConsumedQuota, quota, 0, 0, 0, 0, logContent); err != nil {
@@ -438,7 +441,7 @@ func PreConsumeTranscriptionQuota(ctx context.Context, meta *Meta) (int64, *Erro
 	if err != nil {
 		return 0, ErrorWrapper(err, "get_model_meta_failed", http.StatusInternalServerError)
 	}
-	return PreCost(ctx, meta, computeTranscriptionQuota(inputPriceCNY, groupRatio, preConsumedAudioSeconds))
+	return PreCost(ctx, meta, measuredQuota(inputPriceCNY, groupRatio, preConsumedAudioSeconds))
 }
 
 // PostConsumeTranscriptionQuota 按上游返回的真实时长结算转写配额。
@@ -454,7 +457,7 @@ func PostConsumeTranscriptionQuota(ctx context.Context, meta *Meta, durationSeco
 			"[转写计费] 模型 %s 未能从上游响应解析出音频时长，按 0 结算，需补适配",
 			meta.ActualModelName))
 	}
-	quota := computeTranscriptionQuota(inputPriceCNY, groupRatio, seconds)
+	quota := measuredQuota(inputPriceCNY, groupRatio, float64(seconds))
 	logContent := fmt.Sprintf("音频 ¥%.6f/秒，分组倍率 %.2f（%d 秒，按秒向上取整）",
 		inputPriceCNY/1000000.0, groupRatio, seconds)
 	if err := PostCost(ctx, meta, preConsumedQuota, quota, 0, 0, 0, 0, logContent); err != nil {
@@ -465,7 +468,7 @@ func PostConsumeTranscriptionQuota(ctx context.Context, meta *Meta, durationSeco
 
 - [ ] **Step 5: 运行测试确认通过**
 
-Run: `go test ./internal/objects/ -run 'TestUnitQuotaRatio|TestComputeImageQuota|TestComputeTranscriptionQuota|TestBilledSeconds|TestUSDConversionAppliesToImage' -v`
+Run: `go test ./internal/objects/ -run 'TestUnitQuotaRatio|TestMeasuredQuota|TestTranscriptionSecondsRounding|TestBilledSeconds|TestUSDConversionAppliesToImage' -v`
 Expected: 全部 PASS
 
 - [ ] **Step 6: 全包编译**
@@ -1060,46 +1063,29 @@ git commit -m "fix(audio): 转写按时长计费并按客户端格式转换响�
 在 `internal/objects/billing_multimodal_test.go` 追加：
 
 ```go
-func TestComputeFineTuningQuota(t *testing.T) {
-	// ¥3/1M token，3 epochs × 100000 tokens = 300000 训练 token => 900000 额度
-	if q := computeFineTuningQuota(3, 1.0, 3, 100000); q != 900000 {
-		t.Errorf("computeFineTuningQuota = %d, 期望 900000", q)
-	}
-	// 单价为 0 时不收费
-	if q := computeFineTuningQuota(0, 1.0, 3, 100000); q != 0 {
-		t.Errorf("单价为 0 时 = %d, 期望 0", q)
-	}
-	// 绝不返回负值——旧实现因 ratio 兜底为 -1 会给用户加余额
-	if q := computeFineTuningQuota(3, 1.0, 0, 0); q < 0 {
-		t.Errorf("配额为负: %d", q)
+func TestFineTuningQuotaNeverNegative(t *testing.T) {
+	// 旧实现乘的 ratio 兜底为 -1，配额为负会导致预扣变成给用户充值。
+	// 现在共用 measuredQuota，计量数与单价都非负，结果不可能为负。
+	cases := []struct {
+		price  float64
+		epochs int
+		tokens int
+	}{{3, 3, 100000}, {0, 3, 100000}, {3, 0, 0}, {3, 1, 0}}
+	for _, c := range cases {
+		q := measuredQuota(c.price, 1.0, float64(c.epochs)*float64(c.tokens))
+		if q < 0 {
+			t.Errorf("price=%v epochs=%d tokens=%d 得到负配额 %d", c.price, c.epochs, c.tokens, q)
+		}
 	}
 }
 ```
 
-- [ ] **Step 2: 运行测试确认失败**
+- [ ] **Step 2: 运行测试确认通过**
 
-Run: `go test ./internal/objects/ -run TestComputeFineTuningQuota -v`
-Expected: FAIL，`undefined: computeFineTuningQuota`
+Run: `go test ./internal/objects/ -run TestFineTuningQuotaNeverNegative -v`
+Expected: PASS（`measuredQuota` 已在 Task 2 实现，本测试是针对微调场景的回归保护）
 
-- [ ] **Step 3: 实现并改造**
-
-在 `internal/objects/billing_multimodal.go` 追加：
-
-```go
-// computeFineTuningQuota 计算微调配额。训练按 token 计量，epochs × tokens 为总训练量。
-func computeFineTuningQuota(inputPriceCNY, groupRatio float64, epochs, tokens int) int64 {
-	ratio := unitQuotaRatio(inputPriceCNY, groupRatio)
-	total := float64(epochs) * float64(tokens)
-	if total <= 0 {
-		return 0
-	}
-	quota := int64(math.Ceil(total * ratio))
-	if ratio != 0 && quota <= 0 {
-		quota = 1
-	}
-	return quota
-}
-```
+- [ ] **Step 3: 改造微调配额计算**
 
 把 `internal/objects/training_file.go` 的 `GetPreConsumedQuota` 改为：
 
@@ -1115,7 +1101,8 @@ func (file *TrainingFile) GetPreConsumedQuota(meta *Meta) (int64, error) {
 	}
 	inputPriceCNY, _, _ := getModelPricesInCNY(modelMeta)
 	groupRatio := billingratio.GetGroupRatio(meta.Group)
-	return computeFineTuningQuota(inputPriceCNY, groupRatio, file.Epochs, file.Tokens), nil
+	// 训练按 token 计量，总训练量 = epochs × tokens
+	return measuredQuota(inputPriceCNY, groupRatio, float64(file.Epochs)*float64(file.Tokens)), nil
 }
 ```
 
@@ -1162,7 +1149,7 @@ import (
 
 - [ ] **Step 5: 运行测试确认通过**
 
-Run: `go test ./internal/objects/ -run TestComputeFineTuningQuota -v && go build ./...`
+Run: `go test ./internal/objects/ -run TestFineTuningQuotaNeverNegative -v && go build ./...`
 Expected: PASS，编译无输出
 
 - [ ] **Step 6: 提交**
@@ -1512,3 +1499,4 @@ git commit -m "feat(web): 模型管理支持计量单位，修正价格单位显
 2. Task 9 原先给出了两份方向相反的 `toDisplayPrice`，会直接误导实现者。已明确为"显示值 = 存储值 ÷ 1e6"。
 3. Task 5 原先对是否同步重命名 `switch responseFormat` 留了模糊表述，导致该任务可能无法独立编译。已改为必做。
 4. Task 2 的测试文件缺少 `model` 包导入。已补。
+5. 预检时发现原计划要写 `computeImageQuota` / `computeTranscriptionQuota` / `computeFineTuningQuota` 三个函数，三者形状完全相同（取比率 → 乘计量数 → 向上取整 → 保底 1 额度），属于代码评审规则判定的逻辑块重复，也与"只保留一套计费实现"的目标相悖。经确认统一为单个 `measuredQuota(priceCNYPerM, groupRatio, units float64) int64`，各模态只负责算出自己的 `units`：图片传 `张数 × 尺寸系数`，转写传取整后秒数，微调传 `epochs × tokens`。
