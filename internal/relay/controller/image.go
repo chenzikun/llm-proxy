@@ -16,6 +16,7 @@ import (
 	"github.com/zicorn/llm-proxy/internal/repo"
 	"github.com/zicorn/llm-proxy/internal/objects"
 	"github.com/zicorn/llm-proxy/internal/relay"
+	"github.com/zicorn/llm-proxy/internal/relay/billing"
 	billingratio "github.com/zicorn/llm-proxy/internal/relay/billing/ratio"
 	"github.com/zicorn/llm-proxy/internal/relay/channeltype"
 	relaymodel "github.com/zicorn/llm-proxy/internal/relay/entity"
@@ -191,6 +192,15 @@ func RelayImageHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 		}
 	}
 
+	// 退款守卫必须在 DoRequest 之前注册，确保传输错误也能退还预扣配额。
+	succeed := false
+	defer func() {
+		if succeed {
+			return
+		}
+		billing.ReturnPreConsumedQuota(ctx, preConsumedQuota, meta.TokenId)
+	}()
+
 	// do request
 	resp, err := adaptor.DoRequest(c, meta, requestBody)
 	if err != nil {
@@ -202,6 +212,7 @@ func RelayImageHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			return
 		}
+		succeed = true // 上游返回 200，取消退款守卫
 		if !billByImage {
 			// billing_unit=token 的图片模型由适配器解析 usage 后结算，此处不重复扣费
 			return
