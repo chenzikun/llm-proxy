@@ -14,4 +14,4 @@ __pycache__
 outputs
 .claude
 
-docker/.env
+docker/*.env
