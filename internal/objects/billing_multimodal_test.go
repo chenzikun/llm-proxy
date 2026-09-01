@@ -78,6 +78,34 @@ func TestBilledSeconds(t *testing.T) {
 	}
 }
 
+func TestFineTuningQuotaNeverNegative(t *testing.T) {
+	// 旧实现乘的 ratio 兜底为 -1，配额为负会导致预扣变成给用户充值。
+	// 现在共用 measuredQuota，计量数与单价都非负，结果不可能为负。
+	cases := []struct {
+		price  float64
+		epochs int
+		tokens int
+	}{{3, 3, 100000}, {0, 3, 100000}, {3, 0, 0}, {3, 1, 0}}
+	for _, c := range cases {
+		q := measuredQuota(c.price, 1.0, float64(c.epochs)*float64(c.tokens))
+		if q < 0 {
+			t.Errorf("price=%v epochs=%d tokens=%d 得到负配额 %d", c.price, c.epochs, c.tokens, q)
+		}
+	}
+}
+
+func TestFineTuningSettlementDoesNotMultiplyEpochs(t *testing.T) {
+	// 上游返回的 trained_tokens 已含 epochs，结算不能再乘一次，否则按 epochs 倍超收。
+	const trainedTokens = 300000
+	settled := measuredQuota(3, 1.0, float64(trainedTokens))
+	if settled != 900_000 {
+		t.Errorf("结算 quota = %d, 期望 900000", settled)
+	}
+	if again := measuredQuota(3, 1.0, 3*float64(trainedTokens)); again == settled {
+		t.Errorf("再乘 epochs 应得到不同结果，说明测试失效")
+	}
+}
+
 func TestUSDConversionAppliesToImage(t *testing.T) {
 	// 以 USD 计价的每张价格需按汇率换算成 ¥
 	origRate := config.ExchangeRate

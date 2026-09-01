@@ -110,3 +110,28 @@ func PostConsumeTranscriptionQuota(ctx context.Context, meta *Meta, durationSeco
 		logger.Error(ctx, "error consuming audio quota: "+err.Error())
 	}
 }
+
+// PostConsumeFineTuningQuota 按上游返回的实际训练 token 数结算微调配额。
+//
+// 计量口径与预扣不同：GetPreConsumedQuota 用 epochs × 文件 token 数估算总训练量，
+// 而上游返回的 trainedTokens 已经是整个训练过程消耗的总 token 数（已含 epochs），
+// 因此这里的 units 就是 trainedTokens 本身，不能再乘 epochs。
+//
+// 与图片/转写不同，本函数返回 error 而不是内部吞掉：调用方要靠它决定是否返回 500。
+func PostConsumeFineTuningQuota(ctx context.Context, meta *Meta, trainedTokens int, preConsumedQuota int64) error {
+	inputPriceCNY, _, groupRatio, err := modelPricing(meta)
+	if err != nil {
+		return fmt.Errorf("获取微调模型 %s 的元数据失败: %w", meta.ActualModelName, err)
+	}
+	if trainedTokens <= 0 {
+		// 创建任务时上游通常还没有 trained_tokens（status=queued），此时结算为 0、
+		// 预扣被全额冲抵。真实训练量只有任务结束后才拿得到，需要后续补轮询或回调补扣。
+		logger.Info(ctx, fmt.Sprintf(
+			"[微调计费] 模型 %s 上游未返回 trained_tokens，本次结算为 0，预扣已全额冲抵",
+			meta.ActualModelName))
+	}
+	quota := measuredQuota(inputPriceCNY, groupRatio, float64(trainedTokens))
+	logContent := fmt.Sprintf("模型微调 ¥%.4f/M，分组倍率 %.2f（%d 训练 tokens）",
+		inputPriceCNY, groupRatio, trainedTokens)
+	return PostCost(ctx, meta, preConsumedQuota, quota, 0, 0, 0, 0, logContent)
+}
