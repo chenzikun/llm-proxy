@@ -12,7 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/zicorn/llm-proxy/pkg/common"
 	"github.com/zicorn/llm-proxy/pkg/common/config"
-	"github.com/zicorn/llm-proxy/pkg/common/ctxkey"
 	"github.com/zicorn/llm-proxy/pkg/common/logger"
 	"github.com/zicorn/llm-proxy/internal/repo"
 	"github.com/zicorn/llm-proxy/internal/objects"
@@ -128,8 +127,6 @@ func RelayImageHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 		return objects.ErrorWrapper(err, "get_image_cost_ratio_failed", http.StatusInternalServerError)
 	}
 
-	imageModel := imageRequest.Model
-	// Convert the original image model
 	imageRequest.Model, _ = getMappedModelName(imageRequest.Model, billingratio.ImageOriginModelName)
 	c.Set("response_format", imageRequest.ResponseFormat)
 
@@ -169,15 +166,29 @@ func RelayImageHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 		requestBody = bytes.NewBuffer(jsonStr)
 	}
 
-	modelRatio := billingratio.GetModelRatio(imageModel, meta.ChannelType)
-	groupRatio := billingratio.GetGroupRatio(meta.Group)
-	ratio := modelRatio * groupRatio
-	userQuota, err := model.CacheGetUserQuota(ctx, meta.UserId)
+	modelMeta, err := model.GetModelMetaByModel(meta.ActualModelName)
+	if err != nil {
+		return objects.ErrorWrapper(
+			fmt.Errorf("模型 %s 未配置，请联系管理员在模型管理中添加", meta.ActualModelName),
+			"model_not_configured", http.StatusBadRequest)
+	}
+	// 按 token 计价的图片模型（gpt-image-1 等）走响应中的 usage 结算，
+	// 与按张计价的模型是两条路径，不能共用尺寸系数。
+	billByImage := modelMeta.BillingUnit == model.BillingUnitImage
+	if !billByImage && modelMeta.BillingUnit != model.BillingUnitToken {
+		return objects.ErrorWrapper(
+			fmt.Errorf("模型 %s 的计量单位为 %s，图片接口仅支持 image 或 token",
+				meta.ActualModelName, modelMeta.BillingUnit),
+			"billing_unit_mismatch", http.StatusBadRequest)
+	}
 
-	quota := int64(ratio*imageCostRatio*1000) * int64(imageRequest.N)
-
-	if userQuota-quota < 0 {
-		return objects.ErrorWrapper(errors.New("user quota is not enough"), "insufficient_user_quota", http.StatusForbidden)
+	var preConsumedQuota int64
+	if billByImage {
+		var bizErr2 *objects.ErrorWithStatusCode
+		preConsumedQuota, bizErr2 = objects.PreConsumeImageQuota(ctx, meta, imageRequest.N, imageCostRatio)
+		if bizErr2 != nil {
+			return bizErr2
+		}
 	}
 
 	// do request
@@ -191,23 +202,11 @@ func RelayImageHelper(c *gin.Context, relayMode int) *objects.ErrorWithStatusCod
 		if resp != nil && resp.StatusCode != http.StatusOK {
 			return
 		}
-
-		err := model.PostConsumeTokenQuota(meta.TokenId, quota)
-		if err != nil {
-			logger.SysError("error consuming token remain quota: " + err.Error())
+		if !billByImage {
+			// billing_unit=token 的图片模型由适配器解析 usage 后结算，此处不重复扣费
+			return
 		}
-		err = model.CacheUpdateUserQuota(ctx, meta.UserId)
-		if err != nil {
-			logger.SysError("error update user quota cache: " + err.Error())
-		}
-		if quota != 0 {
-			tokenName := c.GetString(ctxkey.TokenName)
-			logContent := fmt.Sprintf("分组倍率 %.2f", groupRatio)
-			model.RecordConsumeLog(ctx, meta.UserId, meta.ChannelId, 0, 0, 0, imageRequest.Model, tokenName, quota, 0, logContent, meta.SessionId)
-			model.UpdateUserUsedQuotaAndRequestCount(meta.UserId, quota)
-			channelId := c.GetInt(ctxkey.ChannelId)
-			model.UpdateChannelUsedQuota(channelId, quota)
-		}
+		go objects.PostConsumeImageQuota(ctx, meta, imageRequest.N, imageCostRatio, preConsumedQuota)
 	}(c.Request.Context())
 
 	// do response
