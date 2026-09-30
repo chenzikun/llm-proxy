@@ -15,6 +15,11 @@ import (
 
 var SystemName = "One API"
 var ServerAddress = env.String("SERVER_ADDRESS", "")
+
+// DBType 指定数据库类型：mysql / postgres / sqlite。
+// 留空时不生效，退回按 SQL_DSN 前缀推断的老行为；指定后连接参数取自对应的 MYSQL_* / PG_* 变量组。
+var DBType = env.String("DB_TYPE", "")
+
 var Footer = ""
 var Logo = ""
 var TopUpLink = ""
@@ -157,6 +162,13 @@ var MetricSuccessRateThreshold = env.Float64("METRIC_SUCCESS_RATE_THRESHOLD", 0.
 var MetricSuccessChanSize = env.Int("METRIC_SUCCESS_CHAN_SIZE", 1024)
 
 var MetricFailChanSize = env.Int("METRIC_FAIL_CHAN_SIZE", 128)
+
+// InitialRootUsername 首次启动时创建的 root 用户名，默认为 root
+var InitialRootUsername = env.String("INITIAL_ROOT_USERNAME", "root")
+
+// InitialRootPassword 首次启动时创建的 root 密码，默认为 123456
+// 仅在数据库中没有任何用户时生效，之后修改该环境变量不会影响已存在的账号
+var InitialRootPassword = env.String("INITIAL_ROOT_PASSWORD", "123456")
 
 // InitialRootToken 如果设置了该值，则在系统首次启动时会自动创建一个值为该环境变量值的 root 用户令牌
 var InitialRootToken = os.Getenv("INITIAL_ROOT_TOKEN")

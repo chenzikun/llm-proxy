@@ -16,6 +16,7 @@ import (
 //   - /gemini/*     — Google Gemini API（gemini-* 系列）
 //   - /vertexai/*   — Vertex AI API（GCP 上的 Claude / Gemini 等）
 //   - /seedance/*   — BytePlus ModelArk Seedance 视频生成 API
+//   - /wan3/*       — 阿里云百炼 Wan3.0 视频生成 API
 //
 // 客户端只需将 SDK 的 base_url 改为：
 //
@@ -23,6 +24,7 @@ import (
 //	https://<proxy>/gemini
 //	https://<proxy>/vertexai
 //	https://<proxy>/seedance/api/v3   （原为 https://ark.ap-southeast.bytepluses.com/api/v3）
+//	https://<proxy>/wan3              （原为 https://{WorkspaceId}.{region}.maas.aliyuncs.com）
 //
 // 其余（model、请求体、response）与原生 SDK 完全一致。
 func SetNativeRelayRouter(router *gin.Engine) {
@@ -62,5 +64,13 @@ func SetNativeRelayRouter(router *gin.Engine) {
 	seedanceRouter.Use(middlewares...)
 	{
 		seedanceRouter.Any("/*path", pipeline.Handler("seedance.native"))
+	}
+
+	// 阿里云百炼 Wan3.0 视频生成 API
+	// 文档：https://help.aliyun.com/zh/model-studio/wan3-0-video
+	wan3Router := router.Group("/wan3")
+	wan3Router.Use(middlewares...)
+	{
+		wan3Router.Any("/*path", pipeline.Handler("wan3.native"))
 	}
 }

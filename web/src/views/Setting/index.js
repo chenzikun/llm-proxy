@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Tabs, Tab, Box, Card } from '@mui/material';
-import { IconSettings2, IconActivity, IconSettings } from '@tabler/icons-react';
+import { IconSettings2, IconActivity, IconSettings, IconSitemap } from '@tabler/icons-react';
 import OperationSetting from './component/OperationSetting';
 import SystemSetting from './component/SystemSetting';
 import OtherSetting from './component/OtherSetting';
+import ChannelSetting from './component/ChannelSetting';
 import AdminContainer from 'ui-component/AdminContainer';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -38,7 +39,8 @@ const Setting = () => {
   const tabMap = {
     operation: 0,
     system: 1,
-    other: 2
+    other: 2,
+    channel: 3
   };
   const [value, setValue] = useState(tabMap[hash] || 0);
 
@@ -69,6 +71,7 @@ const Setting = () => {
                 <Tab label="运营设置" {...a11yProps(0)} icon={<IconActivity />} iconPosition="start" />
                 <Tab label="系统设置" {...a11yProps(1)} icon={<IconSettings />} iconPosition="start" />
                 <Tab label="其他设置" {...a11yProps(2)} icon={<IconSettings2 />} iconPosition="start" />
+                <Tab label="渠道设置" {...a11yProps(3)} icon={<IconSitemap />} iconPosition="start" />
               </Tabs>
             </Box>
             <CustomTabPanel value={value} index={0}>
@@ -79,6 +82,9 @@ const Setting = () => {
             </CustomTabPanel>
             <CustomTabPanel value={value} index={2}>
               <OtherSetting />
+            </CustomTabPanel>
+            <CustomTabPanel value={value} index={3}>
+              <ChannelSetting />
             </CustomTabPanel>
           </Box>
         </AdminContainer>

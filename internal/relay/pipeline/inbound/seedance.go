@@ -47,7 +47,7 @@ func resolveSeedance(c *gin.Context) (*pipeline.Operation, error) {
 	}
 	c.Set(seedanceInputSecondsCtxKey, inputSeconds)
 	// 两个参数都只给代理看，BytePlus 不认识它们。
-	stripProxyQueryParam(c, nativeformat.SeedanceModelQueryKey)
+	stripProxyQueryParam(c, nativeformat.ModelQueryKey)
 	stripProxyQueryParam(c, nativeformat.SeedanceInputDurationQueryKey)
 
 	op := &pipeline.Operation{

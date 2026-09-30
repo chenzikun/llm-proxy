@@ -22,8 +22,8 @@ func GetModelFromRequest(c *gin.Context, format string) (string, error) {
 		return extractModelFromGooglePath(c.Request.URL.Path)
 	case FormatVertexAI:
 		return extractModelFromVertexAIPath(c.Request.URL.Path)
-	case FormatSeedance:
-		return extractModelFromSeedance(c)
+	case FormatSeedance, FormatWan3:
+		return extractModelFromBodyOrQuery(c)
 	default:
 		// Anthropic / OpenAI: model 在请求体 {"model": "..."}
 		return extractModelFromBody(c)
@@ -42,23 +42,23 @@ func extractModelFromBody(c *gin.Context) (string, error) {
 	return req.Model, nil
 }
 
-// extractModelFromSeedance 从 Seedance 请求中取模型名。
+// extractModelFromBodyOrQuery 给异步视频渠道（Seedance / Wan3）取模型名。
 //
-// 创建任务的模型在请求体里（与 Anthropic 同形）；查询任务的请求体是空的，
-// 上游的响应里也不回模型名，所以查询时必须由客户端在查询串上带 ?model=。
-// 两条路都不通就报错 —— 让 Distribute 随便挑一个同组渠道，会把请求发到
-// 一个可能并不持有该任务的账号上，而错误信息里看不出这一点。
-func extractModelFromSeedance(c *gin.Context) (string, error) {
+// 建单的模型在请求体里（与 Anthropic 同形）；查询任务的请求体是空的，路径里
+// 没有模型名，上游的响应里也不回，所以查询时必须由客户端在查询串上带 ?model=。
+// 两条路都不通就报错 —— 让 Distribute 随便挑一个同组渠道，会把请求发到一个
+// 可能并不持有该任务的账号上，而错误信息里看不出这一点。
+func extractModelFromBodyOrQuery(c *gin.Context) (string, error) {
 	if c.Request.Body != nil {
 		var req modelRequest
 		if err := common.UnmarshalBodyReusable(c, &req); err == nil && req.Model != "" {
 			return req.Model, nil
 		}
 	}
-	if m := c.Query(SeedanceModelQueryKey); m != "" {
+	if m := c.Query(ModelQueryKey); m != "" {
 		return m, nil
 	}
-	return "", fmt.Errorf("缺少模型名：创建任务需在请求体带 model，查询任务需在查询串带 ?model=")
+	return "", fmt.Errorf("缺少模型名：建单需在请求体带 model，查询任务需在查询串带 ?%s=", ModelQueryKey)
 }
 
 // extractModelFromGooglePath 从 Google Gemini URL 路径提取 model。

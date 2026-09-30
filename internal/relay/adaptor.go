@@ -19,6 +19,7 @@ import (
 	"github.com/zicorn/llm-proxy/internal/relay/adaptor/seedance"
 	"github.com/zicorn/llm-proxy/internal/relay/adaptor/tencent"
 	"github.com/zicorn/llm-proxy/internal/relay/adaptor/vertexai"
+	"github.com/zicorn/llm-proxy/internal/relay/adaptor/wan3"
 	"github.com/zicorn/llm-proxy/internal/relay/adaptor/xunfei"
 	"github.com/zicorn/llm-proxy/internal/relay/adaptor/zhipu"
 	"github.com/zicorn/llm-proxy/internal/relay/apitype"
@@ -64,6 +65,8 @@ func GetAdaptor(apiType int) adaptor.RelayAdaptor {
 		return &proxy.ProxyAdaptor{}
 	case apitype.Seedance:
 		return &seedance.Adaptor{}
+	case apitype.Wan3:
+		return &wan3.Adaptor{}
 	}
 	return nil
 }

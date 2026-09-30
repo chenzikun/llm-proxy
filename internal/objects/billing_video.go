@@ -30,6 +30,64 @@ type VideoUsage struct {
 	InputVideoSeconds float64
 }
 
+// VideoSecondsUsage 是按秒计费的视频用量（Wan3.0）。
+//
+// 与 Seedance 的 VideoUsage 并列而不是合一：两者计量单位不同（秒 / token），
+// 单价字段的含义也就不同，硬塞进一个结构只会让"这个数到底是秒还是 token"
+// 在调用点看不出来。
+type VideoSecondsUsage struct {
+	// Seconds 是计入计费的输出时长。
+	Seconds float64
+	// Resolution 只进日志：分辨率档位不同单价不同，而 model_meta 一个模型
+	// 只有一个价位，管理员按哪个档定价是他自己的选择，日志里留个痕迹便于对账。
+	Resolution string
+	// DurationFallback 表示秒数是兜底值（duration 缺省或为 -1），不是请求里写死的。
+	DurationFallback bool
+}
+
+// PreConsumeVideoSecondsQuota 按秒预扣视频生成配额（Wan3.0）。
+func PreConsumeVideoSecondsQuota(ctx context.Context, meta *Meta, usage VideoSecondsUsage) (int64, *ErrorWithStatusCode) {
+	_, outputPriceCNY, groupRatio, err := modelPricing(meta)
+	if err != nil {
+		return 0, ErrorWrapper(err, "get_model_meta_failed", http.StatusInternalServerError)
+	}
+	return PreCost(ctx, meta, measuredQuota(outputPriceCNY, groupRatio, usage.Seconds))
+}
+
+// PostConsumeVideoSecondsQuota 结算按秒计费的视频配额。
+//
+// 与转写一样用 output_price：视频没有"输入 token"这一说，两个价位字段里
+// 只有它是管理员自然会去填的那个。
+func PostConsumeVideoSecondsQuota(ctx context.Context, meta *Meta, usage VideoSecondsUsage, preConsumedQuota int64) {
+	_, outputPriceCNY, groupRatio, err := modelPricing(meta)
+	if err != nil {
+		logger.Error(ctx, "获取视频模型元数据失败: "+err.Error())
+		return
+	}
+	if usage.Seconds <= 0 {
+		// 兜底路径保证秒数不会为 0，走到这里说明调用方传错了，按 0 结算等于白送。
+		logger.Error(ctx, fmt.Sprintf(
+			"[视频计费] 模型 %s 算出 0 秒，按 0 结算，请检查 duration 参数",
+			meta.ActualModelName))
+	}
+	quota := measuredQuota(outputPriceCNY, groupRatio, usage.Seconds)
+	logContent := videoSecondsLogContent(outputPriceCNY, groupRatio, usage)
+	if err := PostCost(ctx, meta, preConsumedQuota, quota, 0, 0, 0, 0, logContent); err != nil {
+		logger.Error(ctx, "error consuming video quota: "+err.Error())
+	}
+}
+
+// videoSecondsLogContent 拼消费日志。单价是"每百万秒"，日志里同时给出
+// 换算后的每秒单价 —— 管理员填的是每秒多少钱，账单上要能一眼对上。
+func videoSecondsLogContent(priceCNYPerM, groupRatio float64, usage VideoSecondsUsage) string {
+	source := fmt.Sprintf("%.0f 秒", usage.Seconds)
+	if usage.DurationFallback {
+		source = fmt.Sprintf("%.0f 秒（duration 未指定或为 -1，按默认时长估）", usage.Seconds)
+	}
+	return fmt.Sprintf("视频 ¥%.6f/秒（¥%.4f/M 秒），分组倍率 %.2f，分辨率 %s（%s）",
+		priceCNYPerM/1000000.0, priceCNYPerM, groupRatio, usage.Resolution, source)
+}
+
 // videoPricing 取视频计费用的人民币单价与分组倍率。
 //
 // 上游按「请求里有没有参考视频」定两档单价：带参考视频时单价更低，但输入视频

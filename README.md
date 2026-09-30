@@ -179,12 +179,28 @@ sudo service nginx restart
 
 > 仅启动方式不同，参数设置不变，请参考基于 Docker 部署部分
 
+**本地开发**：在仓库根目录执行即可，数据存储在 `./data` 文件夹内。
+
 ```shell
-# 目前支持 MySQL 启动，数据存储在 ./data/mysql 文件夹内
-docker-compose up -d
+docker compose up -d
 
 # 查看部署状态
-docker-compose ps
+docker compose ps
+```
+
+配置项通过环境变量传入，例如连接 PostgreSQL：
+
+```shell
+SESSION_SECRET=xxx DB_TYPE=postgres PG_HOST=10.0.0.1 docker compose up -d
+```
+
+数据库类型由 `DB_TYPE` 指定，默认为 `mysql`，可选 `mysql` / `postgres` / `sqlite`。选定类型的连接参数（`MYSQL_*` / `PG_*`）没填全时会回落到 SQLite，启动日志里会打印实际使用的数据库。
+
+**生产构建镜像**：使用 `docker/docker-compose.prod.yml`，构建出的镜像带 registry tag，推送后由其他服务拉取部署（也可以直接在服务器上构建运行，见 `scripts/build-and-deploy.sh`）。
+
+```shell
+docker compose -f docker/docker-compose.prod.yml build
+docker compose -f docker/docker-compose.prod.yml push
 ```
 
 ### 手动部署
@@ -352,6 +368,12 @@ graph LR
    + 例子：
      + MySQL：`SQL_DSN=root:123456@tcp(localhost:3306)/oneapi`
      + PostgreSQL：`SQL_DSN=postgres://postgres:123456@localhost:5432/oneapi`（适配中，欢迎反馈）
+   + 不写 `SQL_DSN` 时，也可以只填 `DB_TYPE`（`mysql` / `postgres` / `sqlite`，默认 `mysql`）加上对应类型的参数组，由程序拼出连接串：
+     + MySQL：`MYSQL_HOST`（必填）、`MYSQL_PORT`（默认 `3306`）、`MYSQL_USERNAME`（默认 `llm_proxy`）、`MYSQL_PASSWORD`、`MYSQL_DB`（默认 `llm_proxy`）
+     + PostgreSQL：`PG_HOST`（必填）、`PG_PORT`（默认 `5432`）、`PG_USER`（默认 `llm_proxy`）、`PG_PASSWORD`、`PG_DB`（默认 `llm_proxy`）
+     + 例子：`DB_TYPE=postgres PG_HOST=10.0.0.1 PG_PASSWORD=xxx`
+     + 选定类型的必填参数缺失时会回落到 SQLite，启动日志里会打印实际使用的数据库。
+   + 两者同时设置时以 `SQL_DSN` 为准，按 `postgres://` 前缀判断数据库类型。
    + 注意需要提前建立数据库 `oneapi`，无需手动建表，程序将自动建表。
    + 如果使用本地数据库：部署命令可添加 `--network="host"` 以使得容器内的程序可以访问到宿主机上的 MySQL。
    + 如果使用云数据库：如果云服务器需要验证身份，需要在连接参数中添加 `?tls=skip-verify`。
@@ -397,8 +419,11 @@ graph LR
 24. `ENABLE_METRIC`：是否根据请求成功率禁用渠道，默认不开启，可选值为 `true` 和 `false`。
 25. `METRIC_QUEUE_SIZE`：请求成功率统计队列大小，默认为 `10`。
 26. `METRIC_SUCCESS_RATE_THRESHOLD`：请求成功率阈值，默认为 `0.8`。
-27. `INITIAL_ROOT_TOKEN`：如果设置了该值，则在系统首次启动时会自动创建一个值为该环境变量值的 root 用户令牌。
-28. `INITIAL_ROOT_ACCESS_TOKEN`：如果设置了该值，则在系统首次启动时会自动创建一个值为该环境变量的 root 用户创建系统管理令牌。
+27. `INITIAL_ROOT_USERNAME`：首次启动时创建的 root 用户名，默认为 `root`。
+28. `INITIAL_ROOT_PASSWORD`：首次启动时创建的 root 密码，默认为 `123456`。
+   + 这两个变量仅在数据库中没有任何用户时生效，之后修改不会影响已存在的账号，已部署的服务请登录后台修改密码。
+29. `INITIAL_ROOT_TOKEN`：如果设置了该值，则在系统首次启动时会自动创建一个值为该环境变量值的 root 用户令牌。
+30. `INITIAL_ROOT_ACCESS_TOKEN`：如果设置了该值，则在系统首次启动时会自动创建一个值为该环境变量的 root 用户创建系统管理令牌。
 
 ### 命令行参数
 1. `--port <port_number>`: 指定服务器监听的端口号，默认为 `3000`。

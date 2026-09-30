@@ -268,5 +268,8 @@ export const CHANNEL_OPTIONS = {
     },
     45: {
         key: 45, text: 'BytePlus Seedance', value: 45, color: 'primary'
+    },
+    47: {
+        key: 47, text: '阿里云百炼 Wan3.0', value: 47, color: 'primary'
     }
 };

@@ -78,9 +78,54 @@ func testSeedanceChannel(channel *model.Channel) (error, *objects.Error) {
 	return nil, nil
 }
 
+// wan3TasksProbePath 是 Wan3 渠道探活用的只读路径。故意用一个不存在的 task_id：
+// 百炼对不存在的任务返回业务错误码，而不是 401 —— 那正好证明"Key 被接受了"。
+const wan3TasksProbePath = "/api/v1/tasks/healthcheck-probe"
+
+// testWan3Channel 探活 Wan3 渠道。
+//
+// 与 Seedance 同理，不能走通用的 testChannel（那条路径打 /v1/chat/completions，
+// 本渠道没有这个接口，会把健康渠道判成故障，进而被定时任务自动禁用）。
+// 也不能用「建单」探活 —— 那是要花钱的。
+//
+// 判定口径：只有 401/403 才算失败（Key 被拒），其余一律视为通过 ——
+// 探的是一个不存在的任务，百炼必然会回业务错误，那是"鉴权没问题"的证据，
+// 不是"渠道坏了"。
+func testWan3Channel(channel *model.Channel) (error, *objects.Error) {
+	baseURL := channel.GetBaseURL()
+	if baseURL == "" {
+		baseURL = channeltype.ChannelBaseURLs[channel.Type]
+	}
+	if baseURL == "" {
+		return errors.New("未配置 BaseURL（形如 https://{WorkspaceId}.{region}.maas.aliyuncs.com）"), nil
+	}
+	req, err := http.NewRequest(http.MethodGet, strings.TrimRight(baseURL, "/")+wan3TasksProbePath, nil)
+	if err != nil {
+		return err, nil
+	}
+	req.Header.Set("Authorization", "Bearer "+channel.Key)
+	resp, err := client.HTTPClient.Do(req)
+	if err != nil {
+		return err, nil
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+		relayErr := controller.RelayErrorHandler(resp)
+		return fmt.Errorf("Key 被上游拒绝（HTTP %d）：%s", resp.StatusCode, relayErr.Error.Message), &relayErr.Error
+	}
+	if resp.StatusCode >= 500 {
+		relayErr := controller.RelayErrorHandler(resp)
+		return fmt.Errorf("上游返回 %d：%s", resp.StatusCode, relayErr.Error.Message), &relayErr.Error
+	}
+	return nil, nil
+}
+
 func testChannel(channel *model.Channel, request *relaymodel.GeneralOpenAIRequest) (err error, openaiErr *objects.Error) {
-	if channel.Type == channeltype.Seedance {
+	switch channel.Type {
+	case channeltype.Seedance:
 		return testSeedanceChannel(channel)
+	case channeltype.Wan3:
+		return testWan3Channel(channel)
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)

@@ -41,6 +41,8 @@ func ToAPIType(channelType int) int {
 		apiType = apitype.Proxy
 	case Seedance:
 		apiType = apitype.Seedance
+	case Wan3:
+		apiType = apitype.Wan3
 	}
 
 	return apiType

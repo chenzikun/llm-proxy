@@ -1,12 +1,11 @@
-# 生产用：构建带 registry tag 的镜像，推仓库后由其他服务拉取部署；
-# 也可直接在服务器上构建运行（scripts/build-and-deploy.sh 走的就是这条）。
-# 环境变量放在 docker/ubuntu.env（已在 .gitignore 中）。
+# 本地开发用。根目录的 docker-compose.yml 通过 include 引用本文件，
+# 因此仓库根执行 `docker compose up -d` 即可，无需 -f。
 services:
   llm-proxy:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    image: registry.cn-shenzhen.aliyuncs.com/zikun/llm-proxy:latest
+    image: llm-proxy:latest
     container_name: llm-proxy
     restart: always
     ports:

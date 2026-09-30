@@ -1,9 +1,10 @@
 import PropTypes from 'prop-types';
 import { useState, useEffect, useCallback } from 'react';
-import { CHANNEL_OPTIONS } from 'constants/ChannelConstants';
 import { useTheme } from '@mui/material/styles';
 import { API } from 'utils/api';
 import { showError, showSuccess, getChannelModels } from 'utils/common';
+import useChannelTypeOptions from 'hooks/useChannelTypeOptions';
+import { loadChannelTypeOptions, resolveNewChannelType, withCurrentChannelType } from 'utils/channelTypeOptions';
 import {
   Dialog,
   DialogTitle,
@@ -54,6 +55,7 @@ const EditModal = ({ open, modelMetaId, onCancel, onOk }) => {
   // const [modelOptions, setModelOptions] = useState([]);
   // const [batchAdd, setBatchAdd] = useState(false);
   const [basicModels, setBasicModels] = useState([]);
+  const channelTypeOptions = useChannelTypeOptions();
 
   const initModelMeta = () => {
     setInputLabel(defaultConfig.inputLabel);
@@ -134,10 +136,29 @@ const EditModal = ({ open, modelMetaId, onCancel, onOk }) => {
 
     if (modelMetaId) {
       loadModelMeta().then();
-    } else {
-      initModelMeta();
-      setInitialInput({ ...defaultConfig.input });
     }
+  }, [modelMetaId]);
+
+  // 新建模型的默认渠道要等勾选范围读出来才定得下来
+  useEffect(() => {
+    if (modelMetaId) {
+      return;
+    }
+    let active = true;
+    loadChannelTypeOptions().then((options) => {
+      if (!active) {
+        return;
+      }
+      initModelMeta();
+      setInitialInput({
+        ...defaultConfig.input,
+        channel_type: resolveNewChannelType(options, defaultConfig.input.channel_type)
+      });
+    });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelMetaId]);
 
   return (
@@ -181,17 +202,13 @@ const EditModal = ({ open, modelMetaId, onCancel, onOk }) => {
                     }
                   }}
                 >
-                  {Object.values(CHANNEL_OPTIONS)
-                    .sort((a, b) => {
-                      return a.text.localeCompare(b.text);
-                    })
-                    .map((option) => {
-                      return (
-                        <MenuItem key={option.value} value={option.value}>
-                          {option.text}
-                        </MenuItem>
-                      );
-                    })}
+                  {withCurrentChannelType(channelTypeOptions, values.channel_type, Boolean(modelMetaId)).map((option) => {
+                    return (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.text}
+                      </MenuItem>
+                    );
+                  })}
                 </Select>
                 {touched.channel_type && errors.channel_type ? (
                   <FormHelperText error id="helper-tex-channel-type-label">

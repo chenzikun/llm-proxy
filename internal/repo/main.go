@@ -26,8 +26,13 @@ func CreateRootAccountIfNeed() error {
 	var user User
 	//if user.Status != util.UserStatusEnabled {
 	if err := DB.First(&user).Error; err != nil {
-		logger.SysLog("no user exists, creating a root user for you: username is root, password is 123456")
-		hashedPassword, err := common.Password2Hash("123456")
+		username := config.InitialRootUsername
+		password := config.InitialRootPassword
+		logger.SysLog(fmt.Sprintf("no user exists, creating a root user for you: username is %s, password is %s", username, password))
+		if password == "123456" {
+			logger.SysLog("WARNING: the default root password is in use, change it after the first login or set INITIAL_ROOT_PASSWORD")
+		}
+		hashedPassword, err := common.Password2Hash(password)
 		if err != nil {
 			return err
 		}
@@ -36,7 +41,7 @@ func CreateRootAccountIfNeed() error {
 			accessToken = config.InitialRootAccessToken
 		}
 		rootUser := User{
-			Username:    "root",
+			Username:    username,
 			Password:    hashedPassword,
 			Role:        RoleRootUser,
 			Status:      UserStatusEnabled,
@@ -65,23 +70,71 @@ func CreateRootAccountIfNeed() error {
 	return nil
 }
 
-func chooseDB(envName string) (*gorm.DB, error) {
-	dsn := os.Getenv(envName)
-	mysqlAddr := os.Getenv("MYSQL_MASTER_SERVER")
+// 数据库类型枚举，取 config.DBType
+const (
+	DBTypeMySQL    = "mysql"
+	DBTypePostgres = "postgres"
+	DBTypeSQLite   = "sqlite"
+)
 
-	switch {
-	case strings.HasPrefix(dsn, "postgres://"):
-		// Use PostgreSQL
-		return openPostgreSQL(dsn)
-	case dsn != "":
-		// Use MySQL
+func chooseDB(envName string) (*gorm.DB, error) {
+	// 直接给了连接串就以它为准，按前缀判断类型（老部署走这条）
+	if dsn := os.Getenv(envName); dsn != "" {
+		if strings.HasPrefix(dsn, "postgres://") {
+			return openPostgreSQL(dsn)
+		}
 		return openMySQL(dsn)
-	case mysqlAddr != "":
-		return createMySQLClient()
-	default:
-		// Use SQLite
-		return openSQLite()
 	}
+
+	switch strings.ToLower(config.DBType) {
+	case DBTypeMySQL:
+		if dsn := mysqlDSNFromEnv(); dsn != "" {
+			return openMySQL(dsn)
+		}
+	case DBTypePostgres:
+		if dsn := postgresDSNFromEnv(); dsn != "" {
+			return openPostgreSQL(dsn)
+		}
+	case DBTypeSQLite:
+		return openSQLite()
+	case "":
+		if os.Getenv("MYSQL_MASTER_SERVER") != "" {
+			return createMySQLClient()
+		}
+	default:
+		logger.SysLogf("unknown DB_TYPE %q, using SQLite as database", config.DBType)
+	}
+
+	// DB_TYPE 没设、或者该类数据库的连接参数不全：回落 SQLite
+	return openSQLite()
+}
+
+// mysqlDSNFromEnv 按 MYSQL_* 参数拼 MySQL 连接串，参数不全时返回空串
+func mysqlDSNFromEnv() string {
+	host := os.Getenv("MYSQL_HOST")
+	if host == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+		env.String("MYSQL_USERNAME", "llm_proxy"),
+		os.Getenv("MYSQL_PASSWORD"),
+		host,
+		env.String("MYSQL_PORT", "3306"),
+		env.String("MYSQL_DB", "llm_proxy"))
+}
+
+// postgresDSNFromEnv 按 PG_* 参数拼 PostgreSQL 连接串，参数不全时返回空串
+func postgresDSNFromEnv() string {
+	host := os.Getenv("PG_HOST")
+	if host == "" {
+		return ""
+	}
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		env.String("PG_USER", "llm_proxy"),
+		os.Getenv("PG_PASSWORD"),
+		host,
+		env.String("PG_PORT", "5432"),
+		env.String("PG_DB", "llm_proxy"))
 }
 
 func openPostgreSQL(dsn string) (*gorm.DB, error) {

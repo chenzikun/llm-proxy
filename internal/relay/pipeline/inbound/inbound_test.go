@@ -119,10 +119,11 @@ func TestInboundAPIVersionPreserved(t *testing.T) {
 	assert.Equal(t, "", op.APIVersion)
 }
 
-// 四份 spec 必须都在 init 中注册，否则路由绑定时服务会 panic。
+// 每份 spec 必须都在 init 中注册，否则路由绑定时服务会 panic。
 func TestSpecsRegistered(t *testing.T) {
 	for _, name := range []string{
-		"gemini.native", "anthropic.native", "vertexai.native", "seedance.native",
+		"gemini.native", "anthropic.native", "vertexai.native",
+		"seedance.native", "wan3.native",
 	} {
 		_, ok := pipeline.Lookup(name)
 		assert.True(t, ok, "spec %s 未注册", name)
@@ -165,6 +166,40 @@ func TestResolveSeedanceStripsModelQueryParam(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, pipeline.KindMetadata, op.Kind)
 	assert.Equal(t, "page_size=1", c.Request.URL.RawQuery)
+}
+
+func TestResolveWan3(t *testing.T) {
+	cases := []struct {
+		method   string
+		path     string
+		wantKind pipeline.Kind
+	}{
+		{http.MethodPost, "/wan3/api/v1/services/aigc/video-generation/video-synthesis", pipeline.KindGenerate},
+		// 版本段变化不能让它掉进不计费的分支
+		{http.MethodPost, "/wan3/v1/services/aigc/video-generation/video-synthesis", pipeline.KindGenerate},
+		{http.MethodPost, "/wan3/api/v1/services/aigc/video-generation/video-synthesis/", pipeline.KindGenerate},
+		// 查询任务不产生新用量
+		{http.MethodGet, "/wan3/api/v1/tasks/0385dc79", pipeline.KindMetadata},
+		// GET 打不到建单路径上
+		{http.MethodGet, "/wan3/api/v1/services/aigc/video-generation/video-synthesis", pipeline.KindMetadata},
+	}
+	for _, tc := range cases {
+		t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+			op, err := resolveWan3(ctxWithRequest(tc.method, tc.path, ""))
+			assert.NoError(t, err)
+			assert.Equal(t, tc.wantKind, op.Kind)
+			assert.Equal(t, wireformat.Unspecified, op.InboundWire)
+		})
+	}
+}
+
+// 查询任务同样要靠 ?model= 选渠道，且不能漏给百炼。
+func TestResolveWan3StripsModelQueryParam(t *testing.T) {
+	c := ctxWithRequest(http.MethodGet, "/wan3/api/v1/tasks/abc?model=wan3.0-video", "")
+	op, err := resolveWan3(c)
+	assert.NoError(t, err)
+	assert.Equal(t, pipeline.KindMetadata, op.Kind)
+	assert.Equal(t, "", c.Request.URL.RawQuery)
 }
 
 // input_video_duration 是可选参数：不传就退回标准行为，不该因此报错。

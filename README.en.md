@@ -126,7 +126,7 @@ sudo certbot --nginx
 sudo service nginx restart
 ```
 
-The initial account username is `root` and password is `123456`.
+The initial account username is `root` and password is `123456`. Override with `INITIAL_ROOT_USERNAME` and `INITIAL_ROOT_PASSWORD` (only takes effect when the database contains no user).
 
 ### Manual Deployment
 1. Download the executable file from [GitHub Releases](https://github.com/songquanpeng/one-api/releases/latest) or compile from source:
@@ -148,7 +148,7 @@ The initial account username is `root` and password is `123456`.
    chmod u+x one-api
    ./one-api --port 3000 --log-dir ./logs
    ```
-3. Access [http://localhost:3000/](http://localhost:3000/) and log in. The initial account username is `root` and password is `123456`.
+3. Access [http://localhost:3000/](http://localhost:3000/) and log in. The initial account username is `root` and password is `123456`. Override with `INITIAL_ROOT_USERNAME` and `INITIAL_ROOT_PASSWORD` (only takes effect when the database contains no user).
 
 For more detailed deployment tutorials, please refer to [this page](https://iamazing.cn/page/how-to-deploy-a-website).
 
@@ -278,8 +278,11 @@ If the channel ID is not provided, load balancing will be used to distribute the
 24. `ENABLE_METRIC`: Whether to disable channels based on request success rate, default not enabled, optional values are 'true' and 'false'.
 25. `METRIC_QUEUE_SIZE`: Request success rate statistics queue size, default to '10'.
 26. `METRIC_SUCCESS_RATE_THRESHOLD`: Request success rate threshold, default to '0.8'.
-27. `INITIAL_ROOT_TOKEN`: If this value is set, a root user token with the value of the environment variable will be automatically created when the system starts for the first time.
-28. `INITIAL_ROOT_ACCESS_TOKEN`: If this value is set, a system management token will be automatically created for the root user with a value of the environment variable when the system starts for the first time.
+27. `INITIAL_ROOT_USERNAME`: The root username created on first startup, defaults to `root`.
+28. `INITIAL_ROOT_PASSWORD`: The root password created on first startup, defaults to `123456`.
+   + These two only take effect when the database contains no user; changing them later does not affect an existing account.
+29. `INITIAL_ROOT_TOKEN`: If this value is set, a root user token with the value of the environment variable will be automatically created when the system starts for the first time.
+30. `INITIAL_ROOT_ACCESS_TOKEN`: If this value is set, a system management token will be automatically created for the root user with a value of the environment variable when the system starts for the first time.
 
 ### Command Line Parameters
 1. `--port <port_number>`: Specifies the port number on which the server listens. Defaults to `3000`.

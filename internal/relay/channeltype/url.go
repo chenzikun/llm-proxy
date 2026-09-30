@@ -50,6 +50,11 @@ var ChannelBaseURLs = []string{
 	// 因此渠道里填自定义 BaseURL 时也只能填到 host，多写 /api/v3 会拼成双份。
 	"https://ark.ap-southeast.bytepluses.com", //
 	"https://api.sagemaker.endpoint",          // 46
+	// 47 Wan3：**故意留空**。百炼的端点是按 Workspace 与 Region 拼的
+	// （https://{WorkspaceId}.{region}.maas.aliyuncs.com），没有一个能通用的默认值。
+	// 留空 ⇒ 管理员不填 BaseURL 时 GetRequestURL 会直接报错，而不是把请求发到
+	// dashscope.aliyuncs.com 上收到一个看不懂的 404。
+	"", // 47
 }
 
 func init() {

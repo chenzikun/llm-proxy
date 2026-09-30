@@ -181,7 +181,8 @@ func shouldCheckModel(c *gin.Context) bool {
 	if strings.HasPrefix(path, "/anthropic") ||
 		strings.HasPrefix(path, "/gemini") ||
 		strings.HasPrefix(path, "/vertexai") ||
-		strings.HasPrefix(path, "/seedance") {
+		strings.HasPrefix(path, "/seedance") ||
+		strings.HasPrefix(path, "/wan3") {
 		return true
 	}
 	return false
