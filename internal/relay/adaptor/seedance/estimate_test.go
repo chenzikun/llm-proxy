@@ -124,6 +124,62 @@ func TestEstimateFromBodyReadsParams(t *testing.T) {
 	assert.False(t, got.HasVideoInput)
 }
 
+// 官方定价页（Seedance 2.5「包含视频输入」）给出的三行样例，逐位复现。
+// 输入 10s + 输出 10s = 20s，24fps，16:9。
+func TestMatchesOfficialPricingExamples(t *testing.T) {
+	cases := []struct {
+		resolution string
+		wantTokens int
+	}{
+		{"480p", 192150},
+		{"720p", 432000},
+		{"1080p", 972000},
+	}
+	for _, tc := range cases {
+		t.Run(tc.resolution, func(t *testing.T) {
+			got := EstimateFor(createReqBody{
+				Resolution: tc.resolution, Ratio: "16:9", Duration: 10,
+				Content: []contentItem{{Type: "video_url", VideoURL: []byte(`{"url":"https://x/r.mp4"}`)}},
+			}, "dreamina-seedance-2-5-260628", 10)
+			assert.Equal(t, tc.wantTokens, got.Tokens)
+		})
+	}
+}
+
+// 单价还分档：480P/720P 同价，1080P 另起一档（含视频输入 $6.4→$7.0，
+// 文生视频 $10.70→$11.70，比例一致）。系数加在**单价**上，不加在 token 上 ——
+// token 数必须等于上游控制台显示的用量。
+func TestResolutionPriceFactor(t *testing.T) {
+	cases := []struct {
+		resolution string
+		want       float64
+	}{
+		{"480p", 1.0},
+		{"720p", 1.0},
+		{"1080p", priceFactorHigh},
+		{"4k", priceFactorHigh},
+		{"1080P", priceFactorHigh}, // 大小写不敏感
+		{"8k", 1.0},                // 认不出的档位按基础档
+	}
+	for _, tc := range cases {
+		t.Run(tc.resolution, func(t *testing.T) {
+			got := EstimateFor(createReqBody{
+				Resolution: tc.resolution, Ratio: "16:9", Duration: 5,
+			}, "", 0)
+			assert.Equal(t, tc.want, got.PriceFactor)
+		})
+	}
+}
+
+// 系数不能改动 token 数本身。
+func TestPriceFactorDoesNotChangeTokens(t *testing.T) {
+	body := func(res string) int {
+		return EstimateFor(createReqBody{Resolution: res, Ratio: "16:9", Duration: 5}, "", 0).Tokens
+	}
+	assert.Equal(t, 21600*5, body("720p"))
+	assert.Equal(t, 48600*5, body("1080p"), "1080p 的 token 本就多，与单价系数无关")
+}
+
 // 上游的公式要把输入视频的时长也加上。一组真实用量（720p 5s 出片 + 5s 参考视频
 // 实测 217k tokens）反过来验证这一项确实存在，而不是我们凭空补的。
 func TestDeclaredInputVideoDurationIsCounted(t *testing.T) {

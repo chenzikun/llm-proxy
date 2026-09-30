@@ -88,7 +88,8 @@ func wan3Estimate(c *gin.Context) (objects.VideoSecondsUsage, *objects.ErrorWith
 			c.GetString(ctxkey.RequestModel), est.Seconds)
 	}
 	return objects.VideoSecondsUsage{
-		Seconds:          est.Seconds,
+		BilledSeconds:    est.BillableSeconds(),
+		RequestedSeconds: est.Seconds,
 		Resolution:       est.Resolution,
 		DurationFallback: est.DurationFallback,
 	}, nil

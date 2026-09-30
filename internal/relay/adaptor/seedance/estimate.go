@@ -46,6 +46,21 @@ var ratioFactor = map[string]float64{
 	"21:9": (21.0 / 9.0) / baseRatio,
 }
 
+// 分辨率带来的**单价台阶**。注意它与 token 数是两回事：token 数里已经含了
+// 宽 × 高，1080P 的 token 本来就是 720P 的 2.25 倍；这里说的是每 token 的价钱
+// 在 1080P 档又高了一截。
+//
+// 官方价目（BytePlus 模型详情页）里 480P 与 720P 同价、1080P 另起一档：
+//
+//	含视频输入  $6.4 → $7.0 /M tokens
+//	不含视频输入 $10.70 → $11.70 /M tokens
+//
+// 两档的比例一致（≈1.094），所以这里用一个系数表达，而不是给每档硬编码价格。
+const (
+	priceFactorBase = 1.0
+	priceFactorHigh = 7.0 / 6.4 // 1080P 及以上
+)
+
 // 模型最长时长（秒），用于 duration = -1（上游自动决定）时的兜底。
 // 取值来自文档 §五「模型选型」。用**前缀**匹配而不是全等，是因为同一代模型
 // 存在 doubao-seedance-2-5-pro-250528 与 dreamina-seedance-2-5-260628
@@ -68,6 +83,12 @@ type Estimate struct {
 	// 调用方可以通过 input_video_duration 参数声明（见 inbound），声明了就用，
 	// 没声明就只能是 0 —— 那一档会系统性偏低，日志里要写出来。
 	InputVideoSeconds float64
+	// PriceFactor 是该分辨率档相对基础档的**单价倍数**（不是 token 倍数）。
+	// 1080P 及以上为 priceFactorHigh，其余为 1。
+	//
+	// 之所以让计费层去乘单价、而不是在这里把 Tokens 乘掉：Tokens 要如实等于
+	// 上游控制台显示的用量，对账时两边必须逐位一致。系数是价格口径，不是用量。
+	PriceFactor float64
 }
 
 // createReqBody 是创建任务请求体中参与估算的字段。
@@ -128,6 +149,20 @@ func EstimateFor(req createReqBody, model string, inputVideoSeconds float64) Est
 		Tokens:            int(math.Round(tokens)),
 		HasVideoInput:     hasVideo,
 		InputVideoSeconds: inputSeconds,
+		PriceFactor:       resolutionPriceFactor(req.Resolution),
+	}
+}
+
+// resolutionPriceFactor 返回该分辨率档的单价倍数。
+//
+// 认不出的档位按基础档算：上游拿到非法分辨率会直接拒（拒了就不计费），
+// 所以这条分支实际只在"上游将来加了新档位"时才会走到。
+func resolutionPriceFactor(resolution string) float64 {
+	switch strings.ToLower(resolution) {
+	case "1080p", "4k":
+		return priceFactorHigh
+	default:
+		return priceFactorBase
 	}
 }
 

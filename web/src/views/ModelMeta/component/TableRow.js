@@ -179,12 +179,15 @@ ModelMetaTableRow.propTypes = {
 function renderPrice(price, priceUnit, billingUnit) {
   const symbol = priceUnit === 'USD' ? '$' : '¥';
   const val = typeof price === 'number' ? price : 0;
-  // 按张计价时存储的是每百万张，换算回每张展示
-  if (billingUnit === 'image') {
+  // image 与 second 存储的是"每百万"，换算回每张 / 每秒展示。
+  // 必须与编辑表单（EditModal 的 toDisplayPrice）同一口径，否则同一个模型
+  // 在列表里是 420000/1M秒、点进去却是 0.42/秒，看起来像存错了。
+  if (billingUnit === 'image' || billingUnit === 'second') {
     return (
       <span>
         {symbol}
-        {(val / 1000000).toFixed(6)}/张
+        {(val / 1000000).toFixed(6)}
+        {billingUnit === 'image' ? '/张' : '/秒'}
       </span>
     );
   }

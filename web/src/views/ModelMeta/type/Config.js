@@ -1,7 +1,7 @@
 const BILLING_UNITS = [
   { value: 'token', label: 'token（文本 / 按 token 计价的图片模型）', priceUnit: '百万 token' },
   { value: 'char', label: 'char 字符（TTS 语音合成）', priceUnit: '百万字符' },
-  { value: 'second', label: 'second 秒（语音转写 / 翻译）', priceUnit: '百万秒' },
+  { value: 'second', label: 'second 秒（视频生成 / 语音转写、翻译）', priceUnit: '秒' },
   { value: 'image', label: 'image 张（按张计价的图片模型）', priceUnit: '张' }
 ];
 

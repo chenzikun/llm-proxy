@@ -85,3 +85,49 @@ func TestEstimateFromBodyRejectsBadJSON(t *testing.T) {
 	_, err := EstimateFromBody([]byte("{not json"))
 	assert.Error(t, err)
 }
+
+// 百炼按分辨率分三档计价，官方价目是干净的 1 : 2 : 4，基准档取 720P。
+func TestResolutionFactorLadder(t *testing.T) {
+	cases := []struct {
+		resolution string
+		wantFactor float64
+	}{
+		{"480P", 0.5},
+		{"720P", 1.0},
+		{"1080P", 2.0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.resolution, func(t *testing.T) {
+			var req createReqBody
+			req.Parameters.Duration = 10
+			req.Parameters.Resolution = tc.resolution
+
+			est := EstimateFor(req)
+			assert.Equal(t, tc.wantFactor, est.ResolutionFactor)
+			assert.Equal(t, 10.0, est.Seconds, "原始秒数不受折算影响")
+			assert.Equal(t, 10.0*tc.wantFactor, est.BillableSeconds())
+		})
+	}
+}
+
+// 缺省分辨率是 1080P（上游默认），所以它按 2 倍计价，不是 1 倍。
+func TestDefaultResolutionIs1080PAndCostsDouble(t *testing.T) {
+	var req createReqBody
+	req.Parameters.Duration = 5
+
+	est := EstimateFor(req)
+	assert.Equal(t, "1080P", est.Resolution)
+	assert.Equal(t, 10.0, est.BillableSeconds(), "5 秒 × 2")
+}
+
+// 分辨率字面值只认大写（与上游一致）；小写是客户端传错，上游会拒，
+// 这里按基准档算而不是悄悄替它兜底成别的档。
+func TestUnknownResolutionFallsBackToBaseFactor(t *testing.T) {
+	var req createReqBody
+	req.Parameters.Duration = 5
+	req.Parameters.Resolution = "720p"
+
+	est := EstimateFor(req)
+	assert.Equal(t, 1.0, est.ResolutionFactor)
+	assert.Equal(t, "720p", est.Resolution, "日志里保留原值，便于看出要补档")
+}

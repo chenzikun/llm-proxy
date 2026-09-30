@@ -26,18 +26,47 @@ const (
 	mediaTypeReferenceVideo = "reference_video"
 )
 
+// 分辨率系数。百炼按分辨率分三档计价，官方价目是干净的 1 : 2 : 4
+// （$0.05 / $0.1 / $0.2 每秒；国内 0.21 / 0.42 / 0.84 元，同比例）。
+//
+// 基准档取 **720P**：model_meta 一个模型只有一个价位，管理员填的单价即"720P 的
+// 每秒价"，其余档位按系数折算。所以 480P 只收一半、1080P 收两倍，而不是一刀切。
+const (
+	resolution480P  = "480P"
+	resolution720P  = "720P"
+	resolution1080P = "1080P"
+
+	factor480P  = 0.5
+	factor720P  = 1.0
+	factor1080P = 2.0
+)
+
+// resolutionFactors 是分辨率 → 折算系数。**只认大写**，与上游一致；
+// 小写的 720p 会被上游当非法值，这里也不该悄悄替它兜底。
+var resolutionFactors = map[string]float64{
+	resolution480P:  factor480P,
+	resolution720P:  factor720P,
+	resolution1080P: factor1080P,
+}
+
 // Estimate 是一次建单的计费用量。
 type Estimate struct {
-	// Seconds 是计入计费的输出时长（秒）。
+	// Seconds 是请求的输出时长（秒），未按分辨率折算。
 	Seconds float64
-	// Resolution 只进消费日志，不参与算钱：分辨率档位不同单价不同，而
-	// model_meta 一个模型只有一个价位。写进日志，便于对账时解释差异。
+	// Resolution 是请求的分辨率档位（缺省时为 defaultResolution）。
 	Resolution string
+	// ResolutionFactor 是该档位相对 720P 的折算系数。
+	ResolutionFactor float64
 	// HasVideoInput 表示请求带了参考视频。
 	HasVideoInput bool
 	// DurationFallback 表示 duration 缺省或为 -1（智能推荐），秒数用的是兜底值。
 	// 这种情况下秒数是猜的，日志里要写明。
 	DurationFallback bool
+}
+
+// BillableSeconds 是折算到基准档（720P）后的计费秒数。
+func (e Estimate) BillableSeconds() float64 {
+	return e.Seconds * e.ResolutionFactor
 }
 
 // createReqBody 是建单请求体里参与估算的字段。
@@ -84,10 +113,18 @@ func EstimateFor(req createReqBody) Estimate {
 	if resolution == "" {
 		resolution = defaultResolution
 	}
+	factor, known := resolutionFactors[resolution]
+	if !known {
+		// 认不出的档位按基准档算。上游拿到非法分辨率会直接拒（拒了就不计费），
+		// 所以这条分支实际只在"上游将来加了新档位"时才会走到 —— 那时按 720P
+		// 算至少不会把单价乘歪，日志里的原始分辨率能让人看出需要补档。
+		factor = factor720P
+	}
 
 	return Estimate{
 		Seconds:          seconds,
 		Resolution:       resolution,
+		ResolutionFactor: factor,
 		HasVideoInput:    hasVideoInput(req),
 		DurationFallback: fallback,
 	}

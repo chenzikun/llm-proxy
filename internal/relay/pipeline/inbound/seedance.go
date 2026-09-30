@@ -178,6 +178,7 @@ func toVideoUsage(est seedance.Estimate) objects.VideoUsage {
 		Tokens:            est.Tokens,
 		HasVideoInput:     est.HasVideoInput,
 		InputVideoSeconds: est.InputVideoSeconds,
+		PriceFactor:       est.PriceFactor,
 	}
 }
 

@@ -28,6 +28,19 @@ type VideoUsage struct {
 	// InputVideoSeconds 是实际计入公式的参考视频时长。
 	// 调用方没声明时为 0 —— 那一档会偏低，日志里要写明。
 	InputVideoSeconds float64
+	// PriceFactor 是按分辨率档位对**单价**的倍数，由渠道侧给出。
+	//
+	// 它乘在单价上而不是 Tokens 上：Tokens 要如实等于上游控制台显示的用量，
+	// 对账时两边必须逐位一致。为 0 时按 1 处理，免得调用方忘了赋值就把价格乘没。
+	PriceFactor float64
+}
+
+// effectivePriceFactor 把未赋值的 PriceFactor 归一为 1。
+func effectivePriceFactor(f float64) float64 {
+	if f <= 0 {
+		return 1
+	}
+	return f
 }
 
 // VideoSecondsUsage 是按秒计费的视频用量（Wan3.0）。
@@ -36,10 +49,14 @@ type VideoUsage struct {
 // 单价字段的含义也就不同，硬塞进一个结构只会让"这个数到底是秒还是 token"
 // 在调用点看不出来。
 type VideoSecondsUsage struct {
-	// Seconds 是计入计费的输出时长。
-	Seconds float64
-	// Resolution 只进日志：分辨率档位不同单价不同，而 model_meta 一个模型
-	// 只有一个价位，管理员按哪个档定价是他自己的选择，日志里留个痕迹便于对账。
+	// BilledSeconds 是**已折算到基准档**的计费秒数，直接乘单价即可。
+	//
+	// 折算（分辨率系数）由渠道侧完成：分辨率档位是渠道的词汇，计费层不该认识
+	// "480P / 1080P" 这些字面量，它只认"多少秒"。
+	BilledSeconds float64
+	// RequestedSeconds 是请求里的原始输出时长，仅用于日志对照。
+	RequestedSeconds float64
+	// Resolution 仅用于日志。
 	Resolution string
 	// DurationFallback 表示秒数是兜底值（duration 缺省或为 -1），不是请求里写死的。
 	DurationFallback bool
@@ -51,26 +68,32 @@ func PreConsumeVideoSecondsQuota(ctx context.Context, meta *Meta, usage VideoSec
 	if err != nil {
 		return 0, ErrorWrapper(err, "get_model_meta_failed", http.StatusInternalServerError)
 	}
-	return PreCost(ctx, meta, measuredQuota(outputPriceCNY, groupRatio, usage.Seconds))
+	return PreCost(ctx, meta, measuredQuota(outputPriceCNY, groupRatio, usage.BilledSeconds))
 }
 
 // PostConsumeVideoSecondsQuota 结算按秒计费的视频配额。
 //
-// 与转写一样用 output_price：视频没有"输入 token"这一说，两个价位字段里
-// 只有它是管理员自然会去填的那个。
 func PostConsumeVideoSecondsQuota(ctx context.Context, meta *Meta, usage VideoSecondsUsage, preConsumedQuota int64) {
 	_, outputPriceCNY, groupRatio, err := modelPricing(meta)
 	if err != nil {
 		logger.Error(ctx, "获取视频模型元数据失败: "+err.Error())
 		return
 	}
-	if usage.Seconds <= 0 {
+	if usage.BilledSeconds <= 0 {
 		// 兜底路径保证秒数不会为 0，走到这里说明调用方传错了，按 0 结算等于白送。
 		logger.Error(ctx, fmt.Sprintf(
-			"[视频计费] 模型 %s 算出 0 秒，按 0 结算，请检查 duration 参数",
+			"[视频计费] 模型 %s 算出 0 计费秒，按 0 结算，请检查 duration 参数",
 			meta.ActualModelName))
 	}
-	quota := measuredQuota(outputPriceCNY, groupRatio, usage.Seconds)
+	if outputPriceCNY <= 0 {
+		// ⚠ billing_unit=second 底下，转写读「输入价格」、视频读「输出价格」——
+		// 同一个计量单位两个字段。管理员按转写的习惯把价填到输入价格上，这里就会
+		// 一分不收，且除了本条日志没有任何提示。所以单价为 0 必须喊出来。
+		logger.Error(ctx, fmt.Sprintf(
+			"[视频计费] 模型 %s 的「输出价格」为 0，本次按 0 结算 —— 按秒计费的视频模型只读「输出价格」，请确认价格没有填到「输入价格」上",
+			meta.ActualModelName))
+	}
+	quota := measuredQuota(outputPriceCNY, groupRatio, usage.BilledSeconds)
 	logContent := videoSecondsLogContent(outputPriceCNY, groupRatio, usage)
 	if err := PostCost(ctx, meta, preConsumedQuota, quota, 0, 0, 0, 0, logContent); err != nil {
 		logger.Error(ctx, "error consuming video quota: "+err.Error())
@@ -79,12 +102,19 @@ func PostConsumeVideoSecondsQuota(ctx context.Context, meta *Meta, usage VideoSe
 
 // videoSecondsLogContent 拼消费日志。单价是"每百万秒"，日志里同时给出
 // 换算后的每秒单价 —— 管理员填的是每秒多少钱，账单上要能一眼对上。
+//
+// 分辨率折算必须写出来：管理员按 720P 定价，1080P 的请求要收两倍，
+// 只写"16 计费秒"而不说为什么是 16，对账时就成了谜。
 func videoSecondsLogContent(priceCNYPerM, groupRatio float64, usage VideoSecondsUsage) string {
-	source := fmt.Sprintf("%.0f 秒", usage.Seconds)
+	source := fmt.Sprintf("%.0f 秒", usage.RequestedSeconds)
 	if usage.DurationFallback {
-		source = fmt.Sprintf("%.0f 秒（duration 未指定或为 -1，按默认时长估）", usage.Seconds)
+		source = fmt.Sprintf("%.0f 秒（duration 未指定或为 -1，按默认时长估）", usage.RequestedSeconds)
 	}
-	return fmt.Sprintf("视频 ¥%.6f/秒（¥%.4f/M 秒），分组倍率 %.2f，分辨率 %s（%s）",
+	if usage.RequestedSeconds > 0 && usage.BilledSeconds != usage.RequestedSeconds {
+		source = fmt.Sprintf("%s × 分辨率系数 %.2f = %.2f 秒等效",
+			source, usage.BilledSeconds/usage.RequestedSeconds, usage.BilledSeconds)
+	}
+	return fmt.Sprintf("视频 ¥%.6f/秒（基准 720P，¥%.4f/M 秒），分组倍率 %.2f，分辨率 %s（%s）",
 		priceCNYPerM/1000000.0, priceCNYPerM, groupRatio, usage.Resolution, source)
 }
 
@@ -114,6 +144,7 @@ func PreConsumeVideoQuota(ctx context.Context, meta *Meta, usage VideoUsage) (in
 	if err != nil {
 		return 0, ErrorWrapper(err, "get_model_meta_failed", http.StatusInternalServerError)
 	}
+	priceCNY *= effectivePriceFactor(usage.PriceFactor)
 	return PreCost(ctx, meta, measuredQuota(priceCNY, groupRatio, float64(usage.Tokens)))
 }
 
@@ -134,6 +165,7 @@ func PostConsumeVideoQuota(ctx context.Context, meta *Meta, usage VideoUsage, pr
 			"[视频计费] 模型 %s 估算出 0 token，按 0 结算，请检查分辨率/时长参数",
 			meta.ActualModelName))
 	}
+	priceCNY *= effectivePriceFactor(usage.PriceFactor)
 	quota := measuredQuota(priceCNY, groupRatio, float64(usage.Tokens))
 	logContent := videoLogContent(priceCNY, groupRatio, usage)
 	if err := PostCost(ctx, meta, preConsumedQuota, quota, 0, usage.Tokens, 0, 0, logContent); err != nil {
@@ -155,6 +187,11 @@ func videoLogContent(priceCNYPerM, groupRatio float64, usage VideoUsage) string 
 		// 上游会把参考视频的时长也计进用量，而那份时长不在请求里（只有一个 URL），
 		// 调用方也没声明 ⇒ 只能按输出时长算，系统性偏低。写进日志，便于对账时解释差异。
 		tier = "含参考视频（输入视频时长未声明，未计入估算，实际用量会更高）"
+	}
+	// 单价里已含分辨率台阶，日志要说明它是怎么来的：否则管理员按 720P 的价目
+	// 填了单价，看到 1080P 的账单会以为算错了。
+	if f := effectivePriceFactor(usage.PriceFactor); f != 1 {
+		tier += fmt.Sprintf("，按分辨率单价 ×%.4f", f)
 	}
 	return fmt.Sprintf("视频 ¥%.4f/M tokens，分组倍率 %.2f，%s（预估 %d output tokens）",
 		priceCNYPerM, groupRatio, tier, usage.Tokens)

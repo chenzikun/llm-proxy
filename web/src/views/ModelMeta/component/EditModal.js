@@ -69,10 +69,12 @@ const EditModal = ({ open, modelMetaId, onCancel, onOk }) => {
     setBasicModels(localModels);
   };
 
-  // billing_unit=image 时后端存的是“每百万张”的价格，界面按“每张”展示，
-  // 避免管理员为 ¥0.3/张 填写 300000 这种反直觉的数字
-  const toDisplayPrice = (value, unit) => (unit === 'image' ? (Number(value) || 0) / 1000000 : Number(value) || 0);
-  const toStoredPrice = (value, unit) => (unit === 'image' ? (Number(value) || 0) * 1000000 : Number(value) || 0);
+  // image 与 second 的后端存储单位是“每百万”，界面按“每张 / 每秒”展示，
+  // 避免管理员为 ¥0.3/张 或 ¥0.42/秒 填写 300000 / 420000 这种反直觉的数字。
+  // token 不在此列：模型价目本来就是按每百万 token 报的，直接填原值最不易错。
+  const PER_MILLION_UNITS = ['image', 'second'];
+  const toDisplayPrice = (value, unit) => (PER_MILLION_UNITS.includes(unit) ? (Number(value) || 0) / 1000000 : Number(value) || 0);
+  const toStoredPrice = (value, unit) => (PER_MILLION_UNITS.includes(unit) ? (Number(value) || 0) * 1000000 : Number(value) || 0);
 
   const priceSuffix = (unit) => {
     const found = BILLING_UNITS.find((u) => u.value === unit);
@@ -361,8 +363,10 @@ const EditModal = ({ open, modelMetaId, onCancel, onOk }) => {
                     <FormHelperText error>{errors.cache_price}</FormHelperText>
                   ) : (
                     <FormHelperText>
-                      {values.billing_unit === 'image'
-                        ? '按张计价时该字段不参与计算'
+                      {/* 缓存折扣是 token 独有的概念：按张/按秒/按字符计费的模型没有"命中缓存"一说，
+                          落到 token 那句文案上会让人以为视频模型也要配缓存价 */}
+                      {values.billing_unit !== 'token'
+                        ? `按${priceSuffix(values.billing_unit)}计价不使用缓存折扣，该字段留 0 即可`
                         : values.cache_price > 0
                         ? `✓ 已启用缓存折扣：命中缓存的 token 按此价格计费，其余按输入价格`
                         : `⚠ 未配置（= 0）：缓存命中的 token 仍按输入价格收费，不享受折扣`}
