@@ -25,7 +25,7 @@ services:
       - REDIS_SERVER=${REDIS_SERVER:-}
       # 数据库类型：必填，mysql / postgres / sqlite。
       # 不设默认值是有意的：连哪个库必须显式声明，避免漏配后悄悄起一个空的 SQLite。
-      - DB_TYPE=${DB_TYPE:?DB_TYPE 未设置，请指定 mysql / postgres / sqlite}
+      - DB_TYPE=${DB_TYPE:-sqlite}
       # MySQL 连接参数（DB_TYPE=mysql 时使用，MYSQL_HOST 必填）
       - MYSQL_HOST=${MYSQL_HOST:-}
       - MYSQL_PORT=${MYSQL_PORT:-3306}
