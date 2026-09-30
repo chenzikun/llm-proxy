@@ -22,9 +22,9 @@ services:
       - REDIS_CONN_STRING=${REDIS_CONN_STRING:-}
       - REDIS_MODE=${REDIS_MODE:-single}
       - REDIS_SERVER=${REDIS_SERVER:-}
-      # 数据库类型：mysql（默认）/ postgres / sqlite
-      # 选定类型的连接参数填全了才会用它，参数不全时回落到 SQLite
-      - DB_TYPE=${DB_TYPE:-mysql}
+      # 数据库类型：mysql / postgres / sqlite（本地开发默认 sqlite）。
+      # 生产用 docker-compose.prod.yml 里这项是必填的，不会替你选。
+      - DB_TYPE=${DB_TYPE:-sqlite}
       # MySQL 连接参数（DB_TYPE=mysql 时使用，MYSQL_HOST 必填）
       - MYSQL_HOST=${MYSQL_HOST:-}
       - MYSQL_PORT=${MYSQL_PORT:-3306}

@@ -78,7 +78,7 @@ const (
 )
 
 func chooseDB(envName string) (*gorm.DB, error) {
-	// 直接给了连接串就以它为准，按前缀判断类型（老部署走这条）
+	// 直接给了完整连接串就以它为准，按前缀判断类型
 	if dsn := os.Getenv(envName); dsn != "" {
 		if strings.HasPrefix(dsn, "postgres://") {
 			return openPostgreSQL(dsn)
@@ -86,27 +86,25 @@ func chooseDB(envName string) (*gorm.DB, error) {
 		return openMySQL(dsn)
 	}
 
+	// 声明用哪种数据库就用哪种：连接参数不全直接报错，不静默换成别的库
 	switch strings.ToLower(config.DBType) {
 	case DBTypeMySQL:
-		if dsn := mysqlDSNFromEnv(); dsn != "" {
-			return openMySQL(dsn)
+		dsn := mysqlDSNFromEnv()
+		if dsn == "" {
+			return nil, fmt.Errorf("DB_TYPE=%s 需要设置 MYSQL_HOST", DBTypeMySQL)
 		}
+		return openMySQL(dsn)
 	case DBTypePostgres:
-		if dsn := postgresDSNFromEnv(); dsn != "" {
-			return openPostgreSQL(dsn)
+		dsn := postgresDSNFromEnv()
+		if dsn == "" {
+			return nil, fmt.Errorf("DB_TYPE=%s 需要设置 PG_HOST", DBTypePostgres)
 		}
+		return openPostgreSQL(dsn)
 	case DBTypeSQLite:
 		return openSQLite()
-	case "":
-		if os.Getenv("MYSQL_MASTER_SERVER") != "" {
-			return createMySQLClient()
-		}
 	default:
-		logger.SysLogf("unknown DB_TYPE %q, using SQLite as database", config.DBType)
+		return nil, fmt.Errorf("无法识别的 DB_TYPE %q，可选 %s / %s / %s", config.DBType, DBTypeMySQL, DBTypePostgres, DBTypeSQLite)
 	}
-
-	// DB_TYPE 没设、或者该类数据库的连接参数不全：回落 SQLite
-	return openSQLite()
 }
 
 // mysqlDSNFromEnv 按 MYSQL_* 参数拼 MySQL 连接串，参数不全时返回空串
@@ -156,16 +154,8 @@ func openMySQL(dsn string) (*gorm.DB, error) {
 	})
 }
 
-func createMySQLClient() (*gorm.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
-		os.Getenv("MYSQL_USERNAME"), os.Getenv("MYSQL_PASSWORD"), os.Getenv("MYSQL_MASTER_SERVER"), "llm_proxy")
-	return gorm.Open(mysql.Open(dsn), &gorm.Config{
-		PrepareStmt: true, // precompile SQL
-	})
-}
-
 func openSQLite() (*gorm.DB, error) {
-	logger.SysLog("SQL_DSN not set, using SQLite as database")
+	logger.SysLog("using SQLite as database")
 	common.UsingSQLite = true
 	dsn := fmt.Sprintf("%s?_busy_timeout=%d", common.SQLitePath, common.SQLiteBusyTimeout)
 	return gorm.Open(sqlite.Open(dsn), &gorm.Config{

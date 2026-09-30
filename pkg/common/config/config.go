@@ -16,9 +16,10 @@ import (
 var SystemName = "One API"
 var ServerAddress = env.String("SERVER_ADDRESS", "")
 
-// DBType 指定数据库类型：mysql / postgres / sqlite。
-// 留空时不生效，退回按 SQL_DSN 前缀推断的老行为；指定后连接参数取自对应的 MYSQL_* / PG_* 变量组。
-var DBType = env.String("DB_TYPE", "")
+// DBType 指定数据库类型：mysql / postgres / sqlite，默认 sqlite。
+// 选定后连接参数取自对应的 MYSQL_* / PG_* 变量组，必填项缺失会直接启动失败，不会悄悄换库。
+// 另外设置了 SQL_DSN 时以 SQL_DSN 为准，此时本项不生效。
+var DBType = env.String("DB_TYPE", "sqlite")
 
 var Footer = ""
 var Logo = ""

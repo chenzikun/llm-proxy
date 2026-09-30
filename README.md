@@ -194,7 +194,7 @@ docker compose ps
 SESSION_SECRET=xxx DB_TYPE=postgres PG_HOST=10.0.0.1 docker compose up -d
 ```
 
-数据库类型由 `DB_TYPE` 指定，默认为 `mysql`，可选 `mysql` / `postgres` / `sqlite`。选定类型的连接参数（`MYSQL_*` / `PG_*`）没填全时会回落到 SQLite，启动日志里会打印实际使用的数据库。
+数据库类型由 `DB_TYPE` 指定，可选 `mysql` / `postgres` / `sqlite`（不设则用 SQLite）。选定类型的必填连接参数（`MYSQL_HOST` / `PG_HOST`）没填会直接启动失败，不会悄悄换成别的库。生产用的 `docker-compose.prod.yml` 里 `DB_TYPE` 是必填项，不填 compose 就会报错拒绝启动。
 
 **生产构建镜像**：使用 `docker/docker-compose.prod.yml`，构建出的镜像带 registry tag，推送后由其他服务拉取部署（也可以直接在服务器上构建运行，见 `scripts/build-and-deploy.sh`）。
 
@@ -368,11 +368,11 @@ graph LR
    + 例子：
      + MySQL：`SQL_DSN=root:123456@tcp(localhost:3306)/oneapi`
      + PostgreSQL：`SQL_DSN=postgres://postgres:123456@localhost:5432/oneapi`（适配中，欢迎反馈）
-   + 不写 `SQL_DSN` 时，也可以只填 `DB_TYPE`（`mysql` / `postgres` / `sqlite`，默认 `mysql`）加上对应类型的参数组，由程序拼出连接串：
+   + 不写 `SQL_DSN` 时，也可以只填 `DB_TYPE`（`mysql` / `postgres` / `sqlite`）加上对应类型的参数组，由程序拼出连接串：
      + MySQL：`MYSQL_HOST`（必填）、`MYSQL_PORT`（默认 `3306`）、`MYSQL_USERNAME`（默认 `llm_proxy`）、`MYSQL_PASSWORD`、`MYSQL_DB`（默认 `llm_proxy`）
      + PostgreSQL：`PG_HOST`（必填）、`PG_PORT`（默认 `5432`）、`PG_USER`（默认 `llm_proxy`）、`PG_PASSWORD`、`PG_DB`（默认 `llm_proxy`）
      + 例子：`DB_TYPE=postgres PG_HOST=10.0.0.1 PG_PASSWORD=xxx`
-     + 选定类型的必填参数缺失时会回落到 SQLite，启动日志里会打印实际使用的数据库。
+     + 选定的类型必填参数缺失、或者 `DB_TYPE` 取值无法识别时会**直接启动失败**，不会悄悄换成 SQLite，避免以为在用 MySQL 实际写进了本地文件。
    + 两者同时设置时以 `SQL_DSN` 为准，按 `postgres://` 前缀判断数据库类型。
    + 注意需要提前建立数据库 `oneapi`，无需手动建表，程序将自动建表。
    + 如果使用本地数据库：部署命令可添加 `--network="host"` 以使得容器内的程序可以访问到宿主机上的 MySQL。

@@ -58,51 +58,56 @@ func TestPostgresDSNFromEnv(t *testing.T) {
 	}
 }
 
-// chooseDB 在 DB_TYPE 未设或参数不全时必须回落 SQLite，而不是报错退出
-func TestChooseDBFallbackToSQLite(t *testing.T) {
-	origPath := common.SQLitePath
-	origUsingSQLite := common.UsingSQLite
-	origUsingMySQL := common.UsingMySQL
-	origUsingPostgreSQL := common.UsingPostgreSQL
-	origDBType := config.DBType
-	t.Cleanup(func() {
-		common.SQLitePath = origPath
-		common.UsingSQLite = origUsingSQLite
-		common.UsingMySQL = origUsingMySQL
-		common.UsingPostgreSQL = origUsingPostgreSQL
-		config.DBType = origDBType
-	})
-	common.SQLitePath = filepath.Join(t.TempDir(), "test.db")
-
+// 声明用哪种数据库就必须用哪种：参数不全或取值非法都要报错，不能悄悄换成 SQLite
+func TestChooseDBRejectsIncompleteConfig(t *testing.T) {
 	t.Setenv("SQL_DSN", "")
-	t.Setenv("MYSQL_MASTER_SERVER", "")
 	t.Setenv("MYSQL_HOST", "")
 	t.Setenv("PG_HOST", "")
+
+	origDBType := config.DBType
+	t.Cleanup(func() { config.DBType = origDBType })
 
 	cases := []struct {
 		name   string
 		dbType string
 	}{
-		{"DB_TYPE 未设置", ""},
 		{"DB_TYPE=mysql 但缺 MYSQL_HOST", DBTypeMySQL},
 		{"DB_TYPE=postgres 但缺 PG_HOST", DBTypePostgres},
 		{"DB_TYPE 取值无法识别", "oracle"},
 	}
 	for _, tc := range cases {
 		config.DBType = tc.dbType
-		common.UsingSQLite = false
-		common.UsingMySQL = false
-		common.UsingPostgreSQL = false
-
 		db, err := chooseDB("SQL_DSN")
-		if err != nil {
-			t.Fatalf("%s: chooseDB 返回错误: %v", tc.name, err)
+		if err == nil {
+			t.Errorf("%s: 期望报错，实际拿到连接 %v", tc.name, db)
 		}
-		if db == nil {
-			t.Fatalf("%s: chooseDB 返回了 nil 连接", tc.name)
-		}
-		if !common.UsingSQLite {
-			t.Errorf("%s: 期望回落 SQLite，实际 UsingSQLite=false", tc.name)
-		}
+	}
+}
+
+// DB_TYPE 默认 sqlite，不设也能起来
+func TestChooseDBDefaultsToSQLite(t *testing.T) {
+	origPath := common.SQLitePath
+	origUsingSQLite := common.UsingSQLite
+	origDBType := config.DBType
+	t.Cleanup(func() {
+		common.SQLitePath = origPath
+		common.UsingSQLite = origUsingSQLite
+		config.DBType = origDBType
+	})
+	common.SQLitePath = filepath.Join(t.TempDir(), "test.db")
+	common.UsingSQLite = false
+	config.DBType = DBTypeSQLite
+
+	t.Setenv("SQL_DSN", "")
+
+	db, err := chooseDB("SQL_DSN")
+	if err != nil {
+		t.Fatalf("chooseDB 返回错误: %v", err)
+	}
+	if db == nil {
+		t.Fatal("chooseDB 返回了 nil 连接")
+	}
+	if !common.UsingSQLite {
+		t.Error("期望走 SQLite，实际 UsingSQLite=false")
 	}
 }
