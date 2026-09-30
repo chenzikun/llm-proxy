@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/zicorn/llm-proxy/pkg/common/client"
 	"github.com/zicorn/llm-proxy/pkg/common/config"
 	"github.com/zicorn/llm-proxy/pkg/common/ctxkey"
 	"github.com/zicorn/llm-proxy/pkg/common/logger"
@@ -46,7 +47,41 @@ func buildTestRequest(model string) *relaymodel.GeneralOpenAIRequest {
 	return testRequest
 }
 
+// seedanceTasksProbePath 是 Seedance 渠道探活用的只读路径（查询任务列表）。
+const seedanceTasksProbePath = "/api/v3/contents/generations/tasks?page_size=1"
+
+// testSeedanceChannel 用一条只读请求探活 Seedance 渠道。
+//
+// 不能走通用的 testChannel：那条路径打的是 /v1/chat/completions，本渠道没有
+// 这个接口，会把健康渠道判成故障 —— 而 testChannels 是定时跑的，判故障的后
+// 果是自动禁用。也不用「创建任务」探活，那会真的产生一笔视频费用。
+func testSeedanceChannel(channel *model.Channel) (error, *objects.Error) {
+	baseURL := channel.GetBaseURL()
+	if baseURL == "" {
+		baseURL = channeltype.ChannelBaseURLs[channel.Type]
+	}
+	req, err := http.NewRequest(http.MethodGet, strings.TrimRight(baseURL, "/")+seedanceTasksProbePath, nil)
+	if err != nil {
+		return err, nil
+	}
+	req.Header.Set("Authorization", "Bearer "+channel.Key)
+	resp, err := client.HTTPClient.Do(req)
+	if err != nil {
+		return err, nil
+	}
+	// 通用 testChannel 靠 adaptor.DoResponse 关 body，这里没有那一步，自己关。
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		relayErr := controller.RelayErrorHandler(resp)
+		return fmt.Errorf("status code %d: %s", resp.StatusCode, relayErr.Error.Message), &relayErr.Error
+	}
+	return nil, nil
+}
+
 func testChannel(channel *model.Channel, request *relaymodel.GeneralOpenAIRequest) (err error, openaiErr *objects.Error) {
+	if channel.Type == channeltype.Seedance {
+		return testSeedanceChannel(channel)
+	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = &http.Request{

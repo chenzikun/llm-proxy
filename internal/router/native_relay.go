@@ -15,12 +15,14 @@ import (
 //   - /anthropic/*  — Anthropic Messages API（claude-* 系列）
 //   - /gemini/*     — Google Gemini API（gemini-* 系列）
 //   - /vertexai/*   — Vertex AI API（GCP 上的 Claude / Gemini 等）
+//   - /seedance/*   — BytePlus ModelArk Seedance 视频生成 API
 //
 // 客户端只需将 SDK 的 base_url 改为：
 //
 //	https://<proxy>/anthropic
 //	https://<proxy>/gemini
 //	https://<proxy>/vertexai
+//	https://<proxy>/seedance/api/v3   （原为 https://ark.ap-southeast.bytepluses.com/api/v3）
 //
 // 其余（model、请求体、response）与原生 SDK 完全一致。
 func SetNativeRelayRouter(router *gin.Engine) {
@@ -52,5 +54,13 @@ func SetNativeRelayRouter(router *gin.Engine) {
 	vertexaiRouter.Use(middlewares...)
 	{
 		vertexaiRouter.Any("/*path", pipeline.Handler("vertexai.native"))
+	}
+
+	// BytePlus ModelArk 视频生成 API（Dreamina Seedance）
+	// 文档：https://docs.byteplus.com/en/docs/ModelArk/1520757
+	seedanceRouter := router.Group("/seedance")
+	seedanceRouter.Use(middlewares...)
+	{
+		seedanceRouter.Any("/*path", pipeline.Handler("seedance.native"))
 	}
 }

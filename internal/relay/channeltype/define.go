@@ -46,7 +46,9 @@ const (
 	VertextAI
 	Proxy
 	SiliconFlow
-	Dummy0
+	// Seedance 占的是原先的空位 Dummy0：它的取值 45 已经在库里被用掉了，
+	// 在末尾追加会让 SagemakerEndpoint / Dummy 整体后移，既有 channel.type 全部错位。
+	Seedance
 	SagemakerEndpoint
 	Dummy
 )

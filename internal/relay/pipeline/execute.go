@@ -73,7 +73,11 @@ func Execute(c *gin.Context, spec *RelaySpec) *objects.ErrorWithStatusCode {
 				"model_not_configured", http.StatusBadRequest)
 		}
 		var bizErr *objects.ErrorWithStatusCode
-		preConsumed, bizErr = objects.PreConsumeQuotaByTokens(ctx, 0, meta)
+		if spec.Billing != nil {
+			preConsumed, bizErr = spec.Billing.PreConsume(c, meta, op)
+		} else {
+			preConsumed, bizErr = objects.PreConsumeQuotaByTokens(ctx, 0, meta)
+		}
 		if bizErr != nil {
 			return bizErr
 		}
@@ -110,6 +114,10 @@ func executePassthrough(c *gin.Context, spec *RelaySpec, meta *objects.Meta, op 
 		return nil
 	}
 
+	if spec.Billing != nil {
+		spec.Billing.Settle(c, meta, op, preConsumed)
+		return nil
+	}
 	settle(ctx, meta, op, preConsumed, body, upstreamWire)
 	return nil
 }

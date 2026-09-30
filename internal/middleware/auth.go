@@ -180,7 +180,8 @@ func shouldCheckModel(c *gin.Context) bool {
 	// 原生格式路径，所有请求都需要 model
 	if strings.HasPrefix(path, "/anthropic") ||
 		strings.HasPrefix(path, "/gemini") ||
-		strings.HasPrefix(path, "/vertexai") {
+		strings.HasPrefix(path, "/vertexai") ||
+		strings.HasPrefix(path, "/seedance") {
 		return true
 	}
 	return false

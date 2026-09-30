@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/zicorn/llm-proxy/internal/objects"
 	"github.com/zicorn/llm-proxy/internal/relay/wireformat"
 )
 
@@ -68,4 +69,20 @@ type RelaySpec struct {
 	// PathPrefix 本代理暴露的路由前缀（如 /gemini），KindMetadata 透传时用于还原上游路径。
 	PathPrefix string
 	Resolve    func(c *gin.Context) (*Operation, error)
+	// Billing 非 nil 时由它接管计费，通用链路不再介入。
+	Billing Billing
+}
+
+// Billing 让「用量不在响应里」的渠道自己决定扣多少。
+//
+// 通用链路的用量来自响应体（wireformat 的提取器）。Seedance 这类异步视频渠道
+// 恰好相反：创建任务的响应里只有 task id，真正的 token 用量要等任务跑完、查
+// 询接口才给得出来，而费用在提交那一刻就已经确定（上游的估价公式只依赖请求
+// 参数）。这种渠道必须自己算 —— 让通用提取器去啃它们的响应，只会静默结算 0：
+// 不报错、不计费，在日志里与"这笔是免费的"长得一模一样。
+type Billing interface {
+	// PreConsume 预扣额度并返回预扣值；返回错误则拒绝本次请求。
+	PreConsume(c *gin.Context, meta *objects.Meta, op *Operation) (int64, *objects.ErrorWithStatusCode)
+	// Settle 结算。preConsumed 是 PreConsume 的返回值。
+	Settle(c *gin.Context, meta *objects.Meta, op *Operation, preConsumed int64)
 }

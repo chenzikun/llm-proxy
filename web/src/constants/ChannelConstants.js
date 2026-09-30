@@ -265,5 +265,8 @@ export const CHANNEL_OPTIONS = {
     },
     46: {
         key: 46, text: 'SagemakerEndpoint', value: 46, color: 'primary'
+    },
+    45: {
+        key: 45, text: 'BytePlus Seedance', value: 45, color: 'primary'
     }
 };

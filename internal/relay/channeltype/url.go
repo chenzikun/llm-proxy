@@ -46,8 +46,10 @@ var ChannelBaseURLs = []string{
 	"",                                          // 42
 	"",                                          // 43
 	"https://api.siliconflow.cn",                // 44
-	"",                                          // 45
-	"https://api.sagemaker.endpoint",            // 46
+	// 45 Seedance：只到 host。/api/v3 由入站路径带上来，
+	// 因此渠道里填自定义 BaseURL 时也只能填到 host，多写 /api/v3 会拼成双份。
+	"https://ark.ap-southeast.bytepluses.com", //
+	"https://api.sagemaker.endpoint",          // 46
 }
 
 func init() {

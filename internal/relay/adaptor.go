@@ -16,6 +16,7 @@ import (
 	"github.com/zicorn/llm-proxy/internal/relay/adaptor/openai"
 	"github.com/zicorn/llm-proxy/internal/relay/adaptor/palm"
 	"github.com/zicorn/llm-proxy/internal/relay/adaptor/proxy"
+	"github.com/zicorn/llm-proxy/internal/relay/adaptor/seedance"
 	"github.com/zicorn/llm-proxy/internal/relay/adaptor/tencent"
 	"github.com/zicorn/llm-proxy/internal/relay/adaptor/vertexai"
 	"github.com/zicorn/llm-proxy/internal/relay/adaptor/xunfei"
@@ -61,6 +62,8 @@ func GetAdaptor(apiType int) adaptor.RelayAdaptor {
 		return &vertexai.Adaptor{}
 	case apitype.Proxy:
 		return &proxy.ProxyAdaptor{}
+	case apitype.Seedance:
+		return &seedance.Adaptor{}
 	}
 	return nil
 }
